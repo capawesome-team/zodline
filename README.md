@@ -220,6 +220,10 @@ Returns an object with:
 - `options`: Parsed and validated options
 - `args`: Parsed and validated arguments
 
+## Used By
+
+- [Capawesome Team CLI](https://github.com/capawesome-team/cli) - The Capawesome Cloud CLI to manage Live Updates and more.
+
 ## Changelog
 
 See [CHANGELOG.md](./CHANGELOG.md).
