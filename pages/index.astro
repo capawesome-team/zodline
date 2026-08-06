@@ -1,0 +1,486 @@
+---
+import { Code } from 'astro:components';
+import PageLayout from 'blume/components/layout/PageLayout.astro';
+import Icon from 'blume/components/Icon.astro';
+import data from 'blume:data';
+
+const { config } = data;
+
+const features = [
+  {
+    icon: 'shield-check',
+    title: 'Type-safe',
+    description: 'Option and argument types come straight from your Zod schemas. No manual generics.',
+  },
+  {
+    icon: 'feather',
+    title: 'Zero runtime dependencies',
+    description: 'Zod is the only peer dependency. Nothing else is installed alongside it.',
+  },
+  {
+    icon: 'terminal',
+    title: 'Flexible flag parsing',
+    description: '--flag, -f, --flag=value, --flag value, and short-flag clustering like -abc.',
+  },
+  {
+    icon: 'type',
+    title: 'Kebab to camel',
+    description: 'Pass --android-max and the schema key androidMax receives the value.',
+  },
+  {
+    icon: 'tags',
+    title: 'Aliases',
+    description: 'Map any short flag to a schema key with the alias record on defineOptions.',
+  },
+  {
+    icon: 'layers',
+    title: 'Array normalization',
+    description: 'A single value for an array field is wrapped in an array before validation.',
+  },
+  {
+    icon: 'book-open',
+    title: 'Generated help',
+    description: '--help and --version are built from your schemas and their .describe() text.',
+  },
+  {
+    icon: 'shield-alert',
+    title: 'Strict by default',
+    description: 'An unknown option raises a ZodlineError instead of being silently dropped.',
+  },
+];
+
+const setupTabs = [
+  {
+    id: 'command',
+    label: 'Command',
+    lang: 'ts',
+    code: `import { z } from 'zod';
+import { defineCommand, defineOptions } from 'zodline';
+
+export const greet = defineCommand({
+  description: 'Greet someone',
+  options: defineOptions(
+    z.object({
+      name: z.string().describe('Name to greet'),
+      loud: z.boolean().default(false).describe('Use uppercase'),
+    }),
+    { n: 'name', l: 'loud' },
+  ),
+  action: async (options) => {
+    const greeting = \`Hello, \${options.name}!\`;
+    console.log(options.loud ? greeting.toUpperCase() : greeting);
+  },
+});`,
+  },
+  {
+    id: 'config',
+    label: 'Config',
+    lang: 'ts',
+    code: `import { defineConfig } from 'zodline';
+import { greet } from './commands/greet.js';
+
+export const config = defineConfig({
+  meta: {
+    name: 'my-cli',
+    version: '1.0.0',
+    description: 'A simple example CLI',
+  },
+  commands: { greet },
+});`,
+  },
+  {
+    id: 'entry',
+    label: 'Entry point',
+    lang: 'ts',
+    code: `#!/usr/bin/env node
+import { processConfig, ZodlineError } from 'zodline';
+import { config } from './config.js';
+
+try {
+  const result = processConfig(config, process.argv.slice(2));
+  await result.command.action(result.options, result.args);
+} catch (error) {
+  if (error instanceof ZodlineError) {
+    console.error(error.message);
+    process.exit(1);
+  }
+  throw error;
+}`,
+  },
+  {
+    id: 'help',
+    label: 'Help output',
+    lang: 'bash',
+    code: `$ my-cli greet --help
+
+Greet someone (my-cli greet v1.0.0)
+
+USAGE my-cli greet [OPTIONS]
+
+OPTIONS
+
+  --name, -n    Name to greet
+  --loud, -l    Use uppercase (default: false)`,
+  },
+];
+
+const executionCode = `// processConfig parses and validates. It never runs your action.
+const result = processConfig(config, process.argv.slice(2));
+await result.command.action(result.options, result.args);
+
+// Which leaves the action a plain function a test can call directly.
+test('greet shouts when loud is set', async () => {
+  await greet.action({ name: 'World', loud: true }, undefined);
+  expect(stdout).toContain('HELLO, WORLD!');
+});`;
+
+const flagRows = [
+  { input: '--name World', schema: "name: z.string()", result: "{ name: 'World' }" },
+  { input: '--name=World', schema: "name: z.string()", result: "{ name: 'World' }" },
+  { input: '-n World', schema: "alias { n: 'name' }", result: "{ name: 'World' }" },
+  { input: '--loud', schema: 'loud: z.boolean()', result: '{ loud: true }' },
+  { input: '-abc', schema: 'three boolean fields', result: '{ a: true, b: true, c: true }' },
+  { input: '--tag x', schema: 'tag: z.array(z.string())', result: "{ tag: ['x'] }" },
+  { input: '--tag x --tag y', schema: 'tag: z.array(z.string())', result: "{ tag: ['x', 'y'] }" },
+  { input: '--android-max 34', schema: 'androidMax: z.string()', result: "{ androidMax: '34' }" },
+];
+
+const docCards = [
+  {
+    icon: 'package',
+    title: 'Installation',
+    description: 'Install zodline and its Zod peer dependency.',
+    href: '/docs/installation',
+  },
+  {
+    icon: 'zap',
+    title: 'Quickstart',
+    description: 'From an empty file to a CLI with two working commands.',
+    href: '/docs/quickstart',
+  },
+  {
+    icon: 'terminal',
+    title: 'Commands',
+    description: 'Descriptions, actions, and the default command.',
+    href: '/docs/guides/commands',
+  },
+  {
+    icon: 'sliders-horizontal',
+    title: 'Options',
+    description: 'Schemas, aliases, defaults, and unknown-option errors.',
+    href: '/docs/guides/options',
+  },
+  {
+    icon: 'book-open',
+    title: 'API reference',
+    description: 'Every export, with its full signature.',
+    href: '/docs/reference/api',
+  },
+  {
+    icon: 'octagon-alert',
+    title: 'Error handling',
+    description: 'Which failures throw what, and how to report them.',
+    href: '/docs/guides/error-handling',
+  },
+];
+
+const requirements = ['Node.js ≥ 16', 'Zod ^4.0.0', 'ESM only', 'Zero dependencies'];
+const traits = ['Types included', 'Standard library APIs only', 'MIT licensed'];
+const codeThemes = { light: 'github-light', dark: 'github-dark' } as const;
+---
+
+<PageLayout
+  site={{ title: config.title, description: config.description }}
+  logo={config.logo}
+  banner={config.banner}
+  analytics={config.analytics}
+  navigation={data.navigation}
+  favicon={config.favicon}
+  fontCssVars={data.fontCssVars}
+  themeMode={config.theme.mode}
+  searchEnabled={config.search.enabled}
+  siteUrl={config.site}
+  ogEnabled={config.og.enabled}
+  page={{ title: 'zodline — a type-safe CLI parser built on Zod', description: config.description }}
+>
+  <div class="mx-auto w-full max-w-6xl px-6">
+    <!-- Hero -->
+    <section class="grid grid-cols-1 items-center gap-12 py-16 sm:py-24 lg:grid-cols-2">
+      <div class="text-center lg:text-left">
+        <span class="inline-flex items-center gap-1.5 rounded-blume border border-border px-3 py-1 text-xs font-medium text-muted-foreground">
+          <Icon name="feather" size={13} />
+          Zero runtime dependencies · ESM only
+        </span>
+        <h1 class="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl">
+          Type-safe CLIs.<br />Declared as schemas.
+        </h1>
+        <p class="mt-5 max-w-xl text-lg text-muted-foreground lg:pr-6">
+          Declare your commands, options, and positional arguments as Zod schemas. zodline parses
+          <code class="font-mono">process.argv</code>, validates it against them, and returns a fully typed
+          result.
+        </p>
+
+        <div class="mt-8 flex max-w-md items-center lg:max-w-none">
+          <div class="flex w-full items-center justify-between gap-2 rounded-blume border border-border bg-code px-4 py-3 font-mono text-sm">
+            <span><span class="select-none text-muted-foreground">$ </span>npm install zodline zod</span>
+            <button
+              type="button"
+              class="copy-install inline-flex shrink-0 items-center text-muted-foreground transition-colors hover:text-foreground"
+              data-command="npm install zodline zod"
+              aria-label="Copy install command"
+            >
+              <span class="copy-idle"><Icon name="copy" size={15} /></span>
+              <span class="copy-done hidden text-accent"><Icon name="check" size={15} /></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+          <a
+            href="/docs"
+            class="inline-flex items-center gap-1.5 rounded-blume bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
+          >
+            Get started
+            <Icon name="arrow-right" size={15} />
+          </a>
+          <a
+            href="/docs/quickstart"
+            class="inline-flex items-center rounded-blume border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+          >
+            Quickstart
+          </a>
+          <a
+            href="https://github.com/capawesome-team/zodline"
+            class="inline-flex items-center gap-1.5 rounded-blume border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+          >
+            <Icon name="github" size={15} />
+            GitHub
+          </a>
+        </div>
+      </div>
+
+      <!-- Tabbed setup sample -->
+      <div class="overflow-hidden rounded-blume border border-border bg-code text-left">
+        <div class="flex items-center gap-1 overflow-x-auto border-b border-border px-2 pt-2" role="tablist" aria-label="Setup step">
+          {
+            setupTabs.map((tab, index) => (
+              <button
+                type="button"
+                role="tab"
+                id={`tab-${tab.id}`}
+                aria-controls={`panel-${tab.id}`}
+                aria-selected={index === 0 ? 'true' : 'false'}
+                class:list={[
+                  'setup-tab -mb-px whitespace-nowrap rounded-t-blume border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+                  index === 0
+                    ? 'border-accent text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                ]}
+              >
+                {tab.label}
+              </button>
+            ))
+          }
+        </div>
+        {
+          setupTabs.map((tab, index) => (
+            <div
+              role="tabpanel"
+              id={`panel-${tab.id}`}
+              aria-labelledby={`tab-${tab.id}`}
+              class:list={['setup-panel overflow-x-auto p-5 text-sm', index === 0 ? '' : 'hidden']}
+            >
+              <Code code={tab.code} lang={tab.lang} themes={codeThemes} />
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- Requirements -->
+    <section class="pb-8 text-center">
+      <p class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Requirements</p>
+      <div class="mt-4 flex flex-wrap items-center justify-center gap-3">
+        {
+          requirements.map((requirement) => (
+            <span class="rounded-blume border border-border px-4 py-1.5 text-sm font-medium">{requirement}</span>
+          ))
+        }
+      </div>
+      <div class="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        {traits.map((trait) => <span>{trait}</span>)}
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="py-16">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {
+          features.map((feature) => (
+            <div class="rounded-blume border border-border p-5 text-left">
+              <span class="text-accent">
+                <Icon name={feature.icon} size={18} />
+              </span>
+              <h3 class="mt-3 text-sm font-semibold">{feature.title}</h3>
+              <p class="mt-2 text-sm text-muted-foreground">{feature.description}</p>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- Parsing vs. execution -->
+    <section class="py-8">
+      <div class="grid grid-cols-1 items-center gap-10 lg:grid-cols-2">
+        <div class="text-center lg:text-left">
+          <h2 class="text-2xl font-semibold tracking-tight">Parsing and execution stay separate</h2>
+          <p class="mt-3 text-sm text-muted-foreground lg:pr-8">
+            <code class="font-mono">processConfig</code> returns <code class="font-mono">{'{ command, options, args }'}</code>
+            and stops there. Running the action is your call, which leaves every action a plain function over typed
+            values: a test invokes it with an object literal, no argv and no process involved.
+            <a href="/docs/guides/arguments" class="text-accent hover:underline">Positional arguments</a> arrive as the
+            second parameter, validated by the command's <code class="font-mono">args</code> schema.
+          </p>
+          <a
+            href="/docs/guides/parsing-vs-execution"
+            class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+          >
+            Why parsing and execution are separate
+            <Icon name="arrow-right" size={14} />
+          </a>
+        </div>
+        <div class="overflow-x-auto rounded-blume border border-border bg-code p-5 text-left text-sm">
+          <Code code={executionCode} lang="ts" themes={codeThemes} />
+        </div>
+      </div>
+    </section>
+
+    <!-- Flag syntax teaser -->
+    <section class="py-16">
+      <div class="mx-auto max-w-3xl text-center">
+        <h2 class="text-2xl font-semibold tracking-tight">Every flag form, normalized</h2>
+        <p class="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+          zodline accepts the forms people actually type and resolves them to your schema keys before validation
+          runs.
+        </p>
+        <div class="mt-6 overflow-x-auto rounded-blume border border-border">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-border bg-muted/50 text-left">
+                <th class="px-4 py-2.5 font-medium">You type</th>
+                <th class="px-4 py-2.5 font-medium">Schema field</th>
+                <th class="px-4 py-2.5 font-medium">options receives</th>
+              </tr>
+            </thead>
+            <tbody>
+              {
+                flagRows.map((row) => (
+                  <tr class="border-b border-border text-left last:border-b-0">
+                    <td class="whitespace-nowrap px-4 py-2.5 font-mono">{row.input}</td>
+                    <td class="whitespace-nowrap px-4 py-2.5 font-mono text-muted-foreground">{row.schema}</td>
+                    <td class="whitespace-nowrap px-4 py-2.5 font-mono">{row.result}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+        <a
+          href="/docs/reference/flag-syntax"
+          class="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+        >
+          See the full flag syntax reference
+          <Icon name="arrow-right" size={14} />
+        </a>
+      </div>
+    </section>
+
+    <!-- Doc entry cards -->
+    <section class="pb-24">
+      <h2 class="text-center text-2xl font-semibold tracking-tight">Start here</h2>
+      <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {
+          docCards.map((card) => (
+            <a
+              href={card.href}
+              class="group rounded-blume border border-border p-5 text-left transition-colors hover:bg-muted"
+            >
+              <span class="text-accent">
+                <Icon name={card.icon} size={18} />
+              </span>
+              <h3 class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold">
+                {card.title}
+                <span class="opacity-0 transition-opacity group-hover:opacity-100">
+                  <Icon name="arrow-right" size={13} />
+                </span>
+              </h3>
+              <p class="mt-2 text-sm text-muted-foreground">{card.description}</p>
+            </a>
+          ))
+        }
+      </div>
+    </section>
+  </div>
+
+  <footer slot="footer" class="border-t border-border">
+    <div class="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 text-sm text-muted-foreground sm:flex-row">
+      <p>
+        © 2026 <a href="https://genz-its.de/" class="transition-colors hover:text-foreground">Genz IT Solutions GmbH</a>, makers of <a href="https://capawesome.io/" class="transition-colors hover:text-foreground">Capawesome</a> · MIT licensed
+      </p>
+      <nav class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        <a href="/docs" class="transition-colors hover:text-foreground">Docs</a>
+        <a href="/blog" class="transition-colors hover:text-foreground">Blog</a>
+        <a href="/changelog" class="transition-colors hover:text-foreground">Changelog</a>
+        <a href="https://github.com/capawesome-team/zodline" class="transition-colors hover:text-foreground">GitHub</a>
+        <a href="https://www.npmjs.com/package/zodline" class="transition-colors hover:text-foreground">npm</a>
+      </nav>
+    </div>
+  </footer>
+</PageLayout>
+
+<style is:global>
+  /* Shiki dual themes: the landing page lives outside .prose, so mirror the
+     dark-mode variable switch Blume applies to docs code blocks. */
+  #blume-content pre.astro-code {
+    background-color: transparent !important;
+  }
+  :root[data-theme='dark'] #blume-content pre.astro-code,
+  :root[data-theme='dark'] #blume-content pre.astro-code span {
+    color: var(--shiki-dark, inherit) !important;
+    font-style: var(--shiki-dark-font-style, inherit) !important;
+    font-weight: var(--shiki-dark-font-weight, inherit) !important;
+    text-decoration: var(--shiki-dark-text-decoration, inherit) !important;
+  }
+</style>
+
+<script>
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.copy-install')) {
+    button.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(button.dataset.command ?? '');
+      button.querySelector('.copy-idle')?.classList.add('hidden');
+      button.querySelector('.copy-done')?.classList.remove('hidden');
+      setTimeout(() => {
+        button.querySelector('.copy-idle')?.classList.remove('hidden');
+        button.querySelector('.copy-done')?.classList.add('hidden');
+      }, 1500);
+    });
+  }
+
+  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('.setup-tab'));
+  const panels = Array.from(document.querySelectorAll<HTMLElement>('.setup-panel'));
+  const activeClasses = ['border-accent', 'text-foreground'];
+  const inactiveClasses = ['border-transparent', 'text-muted-foreground', 'hover:text-foreground'];
+  for (const tab of tabs) {
+    tab.addEventListener('click', () => {
+      for (const other of tabs) {
+        const selected = other === tab;
+        other.setAttribute('aria-selected', String(selected));
+        other.classList.remove(...(selected ? inactiveClasses : activeClasses));
+        other.classList.add(...(selected ? activeClasses : inactiveClasses));
+      }
+      for (const panel of panels) {
+        panel.classList.toggle('hidden', panel.id !== tab.getAttribute('aria-controls'));
+      }
+    });
+  }
+</script>

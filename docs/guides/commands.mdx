@@ -1,0 +1,126 @@
+---
+title: Commands
+description: Define commands with defineCommand, register them in defineConfig, and set a default command.
+sidebar:
+  label: Commands
+  icon: square-terminal
+---
+
+A command is the unit `zodline` dispatches on. `defineCommand` describes one; `defineConfig` registers it
+under the name users type.
+
+## Defining a command
+
+```ts
+import { z } from 'zod';
+import { defineCommand, defineOptions } from 'zodline';
+
+export const build = defineCommand({
+  description: 'Build the project',
+  options: defineOptions(
+    z.object({
+      watch: z.boolean().default(false).describe('Rebuild on change'),
+    }),
+    { w: 'watch' },
+  ),
+  action: async (options) => {
+    console.log(options.watch ? 'Watching...' : 'Building once');
+  },
+});
+```
+
+<TypeTable
+  type={{
+    description: {
+      type: 'string',
+      description: 'Shown next to the command in the help screen.',
+    },
+    options: {
+      type: 'OptionsDefinition',
+      description: 'The result of defineOptions(). Omit for a command with no flags.',
+    },
+    args: {
+      type: 'z.ZodType',
+      description: 'Schema for the positional arguments array. Omit to receive them unvalidated.',
+    },
+    action: {
+      type: '(options, args) => void | Promise<void>',
+      required: true,
+      description: 'What the command does. Never called by zodline itself.',
+    },
+  }}
+/>
+
+`defineCommand` is a typing helper — it returns its input unchanged. Its job is to carry the Zod generics so
+`options` and `args` inside `action` are inferred instead of `any`.
+
+## Registering commands
+
+The keys of `commands` are the names users type. They can contain any characters a shell will pass through,
+which makes namespaced names practical:
+
+```ts
+import { defineConfig } from 'zodline';
+
+export const config = defineConfig({
+  meta: {
+    name: 'my-cli',
+    version: '1.0.0',
+    description: 'Does useful things',
+  },
+  commands: {
+    build,
+    'apps:bundles:create': createBundle,
+  },
+});
+```
+
+## Commands without options
+
+`options` is optional. Leave it out and `action` receives an empty object:
+
+```ts
+const version = defineCommand({
+  description: 'Print the resolved toolchain version',
+  action: async () => {
+    console.log(process.version);
+  },
+});
+```
+
+:::warning
+A command without an options schema still rejects flags. Passing `--anything` to `version` throws
+`Unknown option: --anything`. See [Error handling](/docs/guides/error-handling).
+:::
+
+## Default command
+
+`defaultCommand` runs when the user passes **no command name at all**:
+
+```ts
+export const config = defineConfig({
+  meta: { name: 'my-cli', version: '1.0.0' },
+  commands: { build, serve },
+  defaultCommand: build,
+});
+```
+
+```bash
+my-cli --watch    # runs build
+my-cli build      # also runs build
+my-cli nope       # throws: Unknown command: nope
+```
+
+Two behaviours to keep in mind:
+
+- `--help` and `--version` are handled **before** the default command, so `my-cli --help` still prints the
+  command list rather than running `build`.
+- The default command is only reached when there are no positional arguments, so it always receives an empty
+  `args` array. A command that needs positional arguments has to be invoked by name.
+
+Without a `defaultCommand`, running the CLI bare prints the help screen and throws
+`ZodlineError: No command specified.`
+
+<Card title="Next: Options" icon="flag" href="/docs/guides/options">
+  Schemas, aliases, kebab-case, arrays and defaults.
+</Card>

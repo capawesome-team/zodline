@@ -1,0 +1,8 @@
+/*
+ * Blume hardcodes a white accent foreground in dark mode whenever an accent is
+ * configured, which is unreadable on our near-white dark accent. Restore
+ * Blume's neutral dark-on-light foreground for accent surfaces.
+ */
+:root[data-theme='dark'] {
+  --blume-accent-foreground: oklch(0.085 0 0);
+}

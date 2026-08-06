@@ -1,0 +1,106 @@
+---
+title: 'Commander and Yargs Alternatives for TypeScript CLIs'
+description: 'An honest comparison of builder-based CLI parsers and the schema-first approach, and when each one is the right choice.'
+type: blog
+date: 2026-07-23
+---
+
+Commander and Yargs have been the default answer for Node.js command-line tools for over a decade, and for good reason. They are stable, they handle every shell convention anybody has thought of, and their documentation covers cases most projects will never reach. If one of them is working for you, this article is not trying to change that.
+
+What has changed is the surrounding code. TypeScript is now the default, and validation libraries like Zod already sit in most projects for request bodies and configuration. That shifts the question from "which parser has the most features" to "where does my interface get described, and how many places have to agree about it".
+
+## What do the builder-based parsers do well?
+
+Both libraries describe a CLI through method calls:
+
+```ts
+program
+  .command('serve')
+  .option('-p, --port <number>', 'port to listen on', '3000')
+  .action((options) => start(options));
+```
+
+This is compact, readable, and battle-tested. Commander ships without runtime dependencies and is small enough to reach for without thought. Yargs goes further on features: strict mode, middleware, command modules, and its own coercion and validation hooks.
+
+Their maturity is the real argument for them. Between them they have absorbed years of edge cases around quoting, negation, counts, and environment-variable fallbacks. A schema-first parser is a younger idea, and younger means fewer corners covered.
+
+## Where does the builder approach get awkward in TypeScript?
+
+Three places, in rough order of how often they bite.
+
+**The interface is described in strings.** `'-p, --port <number>'` is a specification the compiler cannot read. Yargs recovers a lot through its options-object form and inferred types; Commander generally leaves you supplying the shape yourself:
+
+```ts
+const options = program.opts<{ port: string }>();
+```
+
+That generic is a claim, not a check. Change the option and the claim stays.
+
+**Values arrive as strings.** `--port 3000` gives you `'3000'`. Both libraries offer a coercion hook, but the rules end up in a callback next to the flag rather than in a schema you can reuse elsewhere.
+
+**Validation lives in two places.** Projects using Zod already validate config files and API payloads with it. A CLI parser with its own validation system means two vocabularies for the same job, and rules that cannot be shared between a `--port` flag and the `PORT` field of a config file.
+
+None of this is fatal. It is the accumulation of small mismatches between an API designed before TypeScript was ubiquitous and a codebase written after.
+
+## What does the schema-first approach change?
+
+The interface becomes data. Options are a Zod object; positional arguments are a Zod schema; the types are inferred, not asserted.
+
+```ts
+import { z } from 'zod';
+import { defineCommand, defineOptions } from 'zodline';
+
+export const serve = defineCommand({
+  description: 'Start the development server',
+  options: defineOptions(
+    z.object({
+      port: z.coerce.number().int().min(1).max(65535).default(3000).describe('Port to listen on'),
+      host: z.string().default('localhost').describe('Interface to bind'),
+    }),
+    { p: 'port', h: 'host' },
+  ),
+  action: async (options) => {
+    // options: { port: number; host: string }
+    await startServer(options);
+  },
+});
+```
+
+`options.port` is a `number` because the schema coerced it, and it is typed `number` because that is what the schema infers. There is no second declaration to keep honest.
+
+The reuse follows: the same `z.coerce.number().int().min(1).max(65535)` can validate the flag, the `PORT` environment variable, and the config file field.
+
+## How do the approaches compare?
+
+| | Builder-based | Schema-first |
+| --- | --- | --- |
+| Interface described as | method calls and format strings | a Zod schema |
+| Option types | supplied by you, or inferred from string literals | inferred from the schema |
+| Value coercion | per-option callbacks | anything Zod expresses |
+| Validation rules | library-specific | shared with the rest of your app |
+| Handler execution | the parser calls it | you call it |
+| Maturity | a decade of edge cases | younger, smaller surface |
+
+## When is a builder still the better choice?
+
+Several cases, and they are not edge cases:
+
+- **You need conventions a small parser skips.** Negatable flags (`--no-color`), counted flags (`-vvv`), `--` passthrough, environment-variable fallbacks, or a `help` subcommand. Yargs in particular has all of this.
+- **You want a framework, not a parser.** oclif brings generators, plugins, and an update mechanism. That is a different product, and for a large multi-command tool it can be the right one.
+- **You are not using Zod.** The main argument for schema-first is one vocabulary for validation. Without Zod already in the project, that argument mostly disappears.
+- **It already works.** Rewriting a working CLI to change how flags are declared is rarely the best use of a week.
+
+## When is schema-first the better fit?
+
+- Zod is already in the project.
+- Coercion and validation rules are shared between flags, environment variables, and config files.
+- You want the parsed result as a value — for tests, for shell completion, or for printing a plan before executing.
+- Type accuracy matters more than covering every shell convention.
+
+`zodline` takes the narrow position on purpose: parse and validate against schemas, generate help from them, and return a typed result. It does not run your action, and it does not implement conventions it cannot derive from a schema.
+
+```package-install
+zodline zod
+```
+
+The [flag syntax reference](/docs/reference/flag-syntax) lists exactly what it does and does not accept, which is the fastest way to decide whether it fits your CLI. Feature sets move, so check the current documentation of any library here before choosing on the basis of a single table.

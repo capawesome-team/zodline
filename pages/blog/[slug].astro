@@ -1,0 +1,122 @@
+---
+import { getCollection } from 'astro:content';
+import BlumePage from 'blume/components/BlumePage.astro';
+import Icon from 'blume/components/Icon.astro';
+import PageLayout from 'blume/components/layout/PageLayout.astro';
+import data from 'blume:data';
+
+export async function getStaticPaths() {
+  // Each route's id matches its collection entry id.
+  const routeByEntryId = new Map(data.routes.map((route) => [route.entryId, route.path]));
+  return (await getCollection('docs'))
+    .filter((entry) => entry.data.type === 'blog' && !entry.data.draft)
+    .map((entry) => ({ entry, path: routeByEntryId.get(entry.id) }))
+    .filter(({ path }) => path?.startsWith('/blog/'))
+    .map(({ entry, path }) => ({
+      params: { slug: path.slice('/blog/'.length) },
+      props: { entry, path },
+    }));
+}
+
+const { entry, path } = Astro.props;
+const { config } = data;
+
+const date = new Date(entry.data.date);
+const dateFormatter = new Intl.DateTimeFormat('en', { dateStyle: 'long' });
+---
+
+<PageLayout
+  site={{ title: config.title, description: config.description }}
+  logo={config.logo}
+  banner={config.banner}
+  analytics={config.analytics}
+  navigation={data.navigation}
+  favicon={config.favicon}
+  fontCssVars={data.fontCssVars}
+  themeMode={config.theme.mode}
+  searchEnabled={config.search.enabled}
+  siteUrl={config.site}
+  ogEnabled={config.og.enabled}
+  page={{
+    title: `${entry.data.title} — ${config.title}`,
+    description: entry.data.description,
+    route: path,
+  }}
+>
+  <div class="mx-auto w-full max-w-[42rem] px-6 py-16">
+    <a
+      href="/blog"
+      class="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <Icon name="arrow-left" size={14} />
+      Blog
+    </a>
+
+    <header class="mt-8">
+      <time datetime={date.toISOString().slice(0, 10)} class="text-sm text-muted-foreground">
+        {dateFormatter.format(date)}
+      </time>
+      <h1 class="mt-2 text-balance text-3xl font-semibold tracking-tight">{entry.data.title}</h1>
+      <p class="mt-3 text-muted-foreground">{entry.data.description}</p>
+    </header>
+
+    <article class="prose mt-10">
+      <BlumePage id={entry.id} />
+    </article>
+  </div>
+</PageLayout>
+
+<script>
+  // PageLayout doesn't run RootLayout's code-block enhancement, so replicate
+  // the copy button and pretty language labels for this page's fences.
+  const icons: Record<string, string> = {
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  };
+
+  const svg = (name: string) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[name]}</svg>`;
+
+  const languageLabels: Record<string, string> = {
+    bash: 'Bash',
+    js: 'JavaScript',
+    json: 'JSON',
+    sh: 'Shell',
+    shell: 'Shell',
+    ts: 'TypeScript',
+    tsx: 'TSX',
+    txt: 'Text',
+    yaml: 'YAML',
+    yml: 'YAML',
+  };
+
+  for (const pre of document.querySelectorAll('.prose pre')) {
+    if (pre.querySelector('[data-blume-copy]')) {
+      continue;
+    }
+    const language = pre.getAttribute('data-language');
+    if (language) {
+      pre.setAttribute('data-language', languageLabels[language.toLowerCase()] ?? language);
+    }
+    pre.classList.add('group', 'relative');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className =
+      'absolute right-3 top-2 inline-flex size-7 items-center justify-center rounded-full bg-transparent text-muted-foreground opacity-70 transition hover:bg-muted hover:text-foreground hover:opacity-100 focus-visible:opacity-100';
+    button.setAttribute('data-blume-copy', '');
+    button.setAttribute('aria-label', 'Copy code');
+    button.innerHTML = svg('copy');
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pre.querySelector('code')?.textContent ?? '');
+      } catch {
+        return;
+      }
+      button.innerHTML = svg('check');
+      setTimeout(() => {
+        button.innerHTML = svg('copy');
+      }, 1500);
+    });
+    pre.appendChild(button);
+  }
+</script>

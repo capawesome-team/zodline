@@ -1,0 +1,169 @@
+---
+title: Quickstart
+description: Build a CLI with two commands, typed options and positional arguments, then run it.
+sidebar:
+  label: Quickstart
+  icon: zap
+---
+
+This walks through a small `my-cli` with two commands: `greet`, which takes options, and `copy`, which takes
+positional arguments.
+
+<Steps>
+
+<Step title="Install the packages">
+
+```package-install
+zodline zod
+```
+
+</Step>
+
+<Step title="Define a command">
+
+A command bundles a description, an options schema, and the action that runs it. `defineOptions` takes the
+schema and an optional alias map from short flag to schema key.
+
+```ts title="commands/greet.ts"
+import { z } from 'zod';
+import { defineCommand, defineOptions } from 'zodline';
+
+export const greet = defineCommand({
+  description: 'Greet someone',
+  options: defineOptions(
+    z.object({
+      name: z.string().describe('Name to greet'),
+      loud: z.boolean().default(false).describe('Use uppercase'),
+    }),
+    { n: 'name', l: 'loud' },
+  ),
+  action: async (options) => {
+    const greeting = `Hello, ${options.name}!`;
+    console.log(options.loud ? greeting.toUpperCase() : greeting);
+  },
+});
+```
+
+`options` inside `action` is typed `{ name: string; loud: boolean }`. The `.describe()` text becomes the
+option's help line.
+
+</Step>
+
+<Step title="Add positional arguments">
+
+Positional arguments are validated by a single schema that receives the whole array. A `z.tuple` gives you a
+fixed shape with per-position names.
+
+```ts title="commands/copy.ts"
+import { z } from 'zod';
+import { defineCommand, defineOptions } from 'zodline';
+
+export const copy = defineCommand({
+  description: 'Copy a file to another location',
+  args: z.tuple([z.string().describe('Source file'), z.string().describe('Destination file')]),
+  options: defineOptions(
+    z.object({
+      verbose: z.boolean().default(false).describe('Show detailed output'),
+    }),
+    { v: 'verbose' },
+  ),
+  action: async (options, args) => {
+    const [source, destination] = args;
+
+    if (options.verbose) {
+      console.log(`Copying ${source} to ${destination}...`);
+    }
+
+    console.log(`Copied ${source} to ${destination}`);
+  },
+});
+```
+
+`args` is typed `[string, string]`, so destructuring it is safe.
+
+</Step>
+
+<Step title="Assemble the config">
+
+`meta` drives the generated help screen and the `--version` flag.
+
+```ts title="config.ts"
+import { defineConfig } from 'zodline';
+import { copy } from './commands/copy.js';
+import { greet } from './commands/greet.js';
+
+export const config = defineConfig({
+  meta: {
+    name: 'my-cli',
+    version: '1.0.0',
+    description: 'A simple example CLI',
+  },
+  commands: { greet, copy },
+});
+```
+
+</Step>
+
+<Step title="Parse and run">
+
+`processConfig` validates argv and returns the matched command. Running it is your call — see
+[Parsing vs. execution](/docs/guides/parsing-vs-execution).
+
+```js title="cli.js"
+#!/usr/bin/env node
+import { processConfig } from 'zodline';
+import { config } from './config.js';
+
+try {
+  const result = processConfig(config, process.argv.slice(2));
+  await result.command.action(result.options, result.args);
+} catch (error) {
+  console.error('Error:', error.message);
+  process.exit(1);
+}
+```
+
+</Step>
+
+<Step title="Try it">
+
+```bash
+my-cli greet --name World
+# Hello, World!
+
+my-cli greet -n World -l
+# HELLO, WORLD!
+
+my-cli copy src.txt dest.txt --verbose
+# Copying src.txt to dest.txt...
+# Copied src.txt to dest.txt
+```
+
+Help and version come for free:
+
+```bash
+my-cli --help          # lists every command
+my-cli greet --help    # lists greet's options, aliases and defaults
+my-cli --version       # 1.0.0
+```
+
+</Step>
+
+</Steps>
+
+## What you get for free
+
+<CardGroup cols={2}>
+  <Card title="Flag syntax" icon="terminal" href="/docs/reference/flag-syntax">
+    `--flag`, `-f`, `--flag=value`, `--flag value`, clustering, repeated flags.
+  </Card>
+  <Card title="kebab-case mapping" icon="arrow-left-right" href="/docs/guides/options">
+    `--dry-run` fills the schema key `dryRun` without extra configuration.
+  </Card>
+  <Card title="Generated help" icon="circle-help" href="/docs/guides/help-and-version">
+    Built from your schemas, descriptions and defaults.
+  </Card>
+  <Card title="Strict options" icon="octagon-alert" href="/docs/guides/error-handling">
+    Unknown flags throw a `ZodlineError` instead of being ignored.
+  </Card>
+</CardGroup>

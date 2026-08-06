@@ -1,0 +1,101 @@
+---
+title: Installation
+description: Install zodline and its Zod peer dependency, and check the runtime requirements.
+sidebar:
+  label: Installation
+  icon: package
+---
+
+`zodline` needs **Zod v4** alongside it. Zod is a peer dependency, so install both:
+
+```package-install
+zodline zod
+```
+
+## Requirements
+
+<TypeTable
+  type={{
+    Node: {
+      type: 'string',
+      default: '>= 16',
+      description: 'Uses only standard library APIs.',
+    },
+    Module: {
+      type: 'string',
+      default: 'ESM',
+      description: 'Package "type": "module". No CommonJS build.',
+    },
+    Zod: {
+      type: 'string',
+      default: '^4.0.0',
+      description: 'Peer dependency. Provide it yourself.',
+    },
+    Dependencies: {
+      type: 'string',
+      default: '0',
+      description: 'No runtime dependencies beyond the Zod peer.',
+    },
+  }}
+/>
+
+## Import
+
+Everything is exported from the package root:
+
+```ts
+import {
+  defineCommand,
+  defineConfig,
+  defineOptions,
+  processConfig,
+  ZodlineError,
+} from 'zodline';
+```
+
+Types are exported as well:
+
+```ts
+import type {
+  CommandDefinition,
+  DefineConfig,
+  OptionsDefinition,
+  ProcessResult,
+} from 'zodline';
+```
+
+## ESM only
+
+`zodline` ships as ES modules with no CommonJS build. In a Node.js project, either set `"type": "module"` in
+your `package.json` or use the `.mjs` extension for your entry file.
+
+:::warning
+`require('zodline')` will not work. If you are on CommonJS, use a dynamic `await import('zodline')` or move
+the package to ESM.
+:::
+
+## Make it executable
+
+A CLI is a file with a shebang, wired up through the `bin` field:
+
+```js title="cli.js"
+#!/usr/bin/env node
+import { processConfig } from 'zodline';
+import { config } from './config.js';
+
+const result = processConfig(config, process.argv.slice(2));
+await result.command.action(result.options, result.args);
+```
+
+```json title="package.json"
+{
+  "type": "module",
+  "bin": {
+    "my-cli": "./cli.js"
+  }
+}
+```
+
+<Card title="Continue to the Quickstart" icon="zap" href="/docs/quickstart">
+  Define your first command, parse argv, and run it.
+</Card>

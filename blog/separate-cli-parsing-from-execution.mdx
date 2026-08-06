@@ -1,0 +1,130 @@
+---
+title: 'Why Your CLI Parser Should Not Run Your Commands'
+description: 'Parsing argv and executing a command are two jobs. Splitting them makes commands testable, middleware unnecessary, and error handling ordinary code.'
+type: blog
+date: 2026-07-30
+---
+
+Nearly every CLI library runs your handler for you. You register a command, attach a callback, call `.parse()`, and somewhere inside that call your function executes. It reads well in a README. It ages badly.
+
+The coupling shows up the first time you want to test a command, log its duration, or check authentication before it runs. Each of those needs a hook, and hooks are what a library invents when it has taken ownership of the call site.
+
+## What does the coupling actually cost?
+
+Three things, in the order most projects hit them.
+
+**Testing gets indirect.** If parsing runs the handler, testing the parse means running the handler. Projects work around this by extracting the body into a separate function and testing that instead — which is an admission that parsing and execution were separable all along.
+
+**Cross-cutting concerns need an API.** Timing, telemetry, dry-run modes, transaction boundaries: all ordinary code, all suddenly requiring `beforeAction` and `afterAction` hooks with their own ordering rules and error semantics.
+
+**Error handling splits in two.** Parse errors surface one way, handler errors another. Getting a single consistent exit-code policy means learning both paths.
+
+## What is the alternative?
+
+Return the result and let the caller run it. In `zodline`, `processConfig` validates and returns; the last line of your entry point is the one that executes:
+
+```ts
+import { processConfig } from 'zodline';
+import { config } from './config.js';
+
+const result = processConfig(config, process.argv.slice(2));
+await result.command.action(result.options, result.args);
+```
+
+Two lines instead of one. In exchange, the boundary between "figure out what was asked" and "do it" is a value you hold.
+
+## How does this make commands testable?
+
+A test can parse an argv array and assert on the result without anything happening:
+
+```ts
+import { expect, it } from 'vitest';
+import { processConfig } from 'zodline';
+import { config } from '../src/config.js';
+
+it('defaults --loud to false', () => {
+  const result = processConfig(config, ['greet', '--name', 'World']);
+
+  expect(result.options).toEqual({ name: 'World', loud: false });
+});
+
+it('rejects unknown flags', () => {
+  expect(() => processConfig(config, ['greet', '--shout'])).toThrow('Unknown option');
+});
+```
+
+These are unit tests over pure functions. No spawned subprocess, no stubbed `process.exit`, no filesystem. The action is a plain async function, so it is tested the same way anything else is — call it with an options object.
+
+That distinction matters more than it sounds. Parsing bugs and logic bugs have completely different shapes, and tests that can only exercise both at once will find neither quickly.
+
+## What replaces middleware?
+
+Ordinary code around the call.
+
+```ts
+const result = processConfig(config, process.argv.slice(2));
+
+if (requiresAuth(result.command) && !(await isAuthenticated())) {
+  console.error('Run `my-cli login` first.');
+  process.exit(2);
+}
+
+const startedAt = performance.now();
+try {
+  await result.command.action(result.options, result.args);
+} finally {
+  telemetry.record(result.command.description, performance.now() - startedAt);
+}
+```
+
+There is no plugin API to learn because there is nothing to plug into. Ordering is the order of your statements. A `try`/`finally` behaves the way `try`/`finally` behaves.
+
+## And error handling?
+
+One `catch` covers both parse failures and command failures, which makes a coherent exit-code policy easy to state:
+
+```ts
+try {
+  const result = processConfig(config, process.argv.slice(2));
+  await result.command.action(result.options, result.args);
+} catch (error) {
+  if (error instanceof ZodlineError) {
+    console.error(error.message);
+    process.exit(2); // usage error
+  }
+
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1); // execution error
+}
+```
+
+`2` for "you typed it wrong", `1` for "the command failed" is a convention users and CI scripts can rely on. It is hard to express when the two failures are raised from different layers of someone else's control flow.
+
+## Are there other uses for a parse result?
+
+Once parsing produces a value rather than a side effect, it becomes useful on its own:
+
+- **Shell completion** — parse a partial command line and inspect what would match.
+- **Validating stored commands** — check a command string from a config file or job queue without executing it.
+- **Plan output** — print what would run before asking for confirmation.
+
+```ts
+const result = processConfig(config, storedArgv);
+
+console.log('Would run:', result.command.description);
+console.log('With options:', result.options);
+```
+
+None of that requires an API. It follows from the result being a value.
+
+## Where does the split break down?
+
+Honestly: `--help` and `--version`. Both print and call `process.exit(0)` from inside `processConfig`, because there is no meaningful result to return for "the user asked what this program does". Tests that cover those paths have to spy on `process.exit` or spawn a subprocess.
+
+That is the one place the seam leaks, and it is worth naming rather than pretending otherwise.
+
+## Is two lines worth it?
+
+The extra line is the point. It marks where parsing ends and your program begins, and everything you would otherwise ask a library to provide — hooks, test helpers, error middleware — becomes code you already know how to write.
+
+[Parsing vs. execution](/docs/guides/parsing-vs-execution) covers the details.

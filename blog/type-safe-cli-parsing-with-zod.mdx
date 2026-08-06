@@ -1,0 +1,126 @@
+---
+title: 'Type-Safe CLI Parsing with Zod'
+description: 'How to describe a command-line interface as a Zod schema so parsing, validation, help output, and TypeScript types all come from one source.'
+type: blog
+date: 2026-08-06
+---
+
+Most CLI parsers ask you to describe your interface twice. Once as a builder chain that produces runtime behaviour, and again as a TypeScript type so the rest of your code knows what it received. The two drift apart the moment somebody renames a flag, and the compiler has no way to notice.
+
+Zod already solves this problem for HTTP request bodies, config files, and environment variables: one schema, validated at runtime, inferred at compile time. A command line is the same problem wearing different clothes. Here is what falls out when you treat it that way.
+
+## Why is argv hard to type?
+
+`process.argv` is `string[]`. Everything a user typed arrives as text, positionally, with no structure. A parser's job is to turn that into a record — and that transformation is where types get lost.
+
+The common approaches each lose something:
+
+- **Hand-rolled parsing** gives you `Record<string, string | boolean>` and a pile of `as` casts.
+- **Builder APIs** (`.option('--port <n>')`) encode the interface in strings the compiler cannot read. Some libraries parse those strings in the type system, which works until the flag needs anything beyond a primitive.
+- **Separate interface declarations** are accurate right up until the schema changes without them.
+
+The fix is not more clever typing on top of a runtime parser. It is having one artefact that produces both.
+
+## What does a schema-first CLI look like?
+
+Declare the options as a Zod object. Field names are the flags, `.describe()` is the help text, and the schema's inferred type is what your code receives.
+
+```ts
+import { z } from 'zod';
+import { defineCommand, defineOptions } from 'zodline';
+
+export const serve = defineCommand({
+  description: 'Start the development server',
+  options: defineOptions(
+    z.object({
+      port: z.coerce.number().int().min(1).max(65535).default(3000).describe('Port to listen on'),
+      host: z.string().default('localhost').describe('Interface to bind'),
+      open: z.boolean().default(false).describe('Open a browser window'),
+    }),
+    { p: 'port', h: 'host' },
+  ),
+  action: async (options) => {
+    // options: { port: number; host: string; open: boolean }
+    await startServer(options);
+  },
+});
+```
+
+`options.port` is a `number`, not a `string` that looks like one, because `z.coerce.number()` runs during validation. Rename `port` to `listenPort` and every reader of that field stops compiling. That is the whole point.
+
+## How does validation replace defensive code?
+
+Once the schema owns validation, a category of code disappears from the action body. No `parseInt`, no range check, no "did they pass both `--json` and `--quiet`" branch:
+
+```ts
+const options = z
+  .object({
+    format: z.enum(['json', 'text']).default('text').describe('Output format'),
+    quiet: z.boolean().default(false).describe('Suppress progress output'),
+  })
+  .refine((value) => !(value.quiet && value.format === 'text'), {
+    message: 'Use --format json with --quiet',
+  });
+```
+
+Anything Zod expresses, the CLI now accepts: unions, refinements, transforms, branded types, coercion to `Date`. The action starts with valid input and stays about its actual job.
+
+## Where does the help output come from?
+
+The same schema. Field names become flag names, `.describe()` becomes the description column, and `.default()` becomes the `(default: …)` suffix:
+
+```text
+Start the development server (my-cli serve v1.0.0)
+
+USAGE my-cli serve [OPTIONS]
+
+OPTIONS
+
+  --port, -p    Port to listen on (default: 3000)
+  --host, -h    Interface to bind (default: "localhost")
+  --open        Open a browser window
+```
+
+Help that is generated from the schema cannot go stale. Documentation drift on a CLI is usually not laziness — it is a second artefact nobody remembered to update.
+
+## What about the shell's conventions?
+
+Schemas are camelCase; command lines are kebab-case. That mismatch is worth handling in the parser rather than in every schema:
+
+```bash
+my-cli deploy --dry-run --android-max 34
+# { dryRun: true, androidMax: 34 }
+```
+
+Repeated flags are the other convention that resists naive typing. `--tag a --tag b` should be `string[]`, and so should a single `--tag a`:
+
+```ts
+z.object({
+  tag: z.array(z.string()).default([]).describe('Tag to apply, repeatable'),
+});
+```
+
+A single value gets wrapped before validation, so the schema stays a plain array instead of `z.union([z.string(), z.array(z.string())])`.
+
+## What does strictness buy you?
+
+An unknown flag should be an error. Parsers that silently collect unrecognized keys turn `--dry-runs` into a no-op that quietly destroys production data.
+
+```bash
+my-cli deploy --dry-runs
+# Unknown option: --dry-runs
+```
+
+The check runs before validation, against the schema keys in both spellings plus the alias map. There is no permissive mode, and that is the correct default for a tool that takes actions.
+
+## Is this only about types?
+
+The types are the visible benefit; the single source of truth is the durable one. A schema is data, so it can be inspected. Generated help is the obvious consumer. Shell completion, documentation pages, and a JSON description of your interface for other tools all come from the same object, without a second declaration to maintain.
+
+`zodline` packages that idea: schemas in, a validated and fully-typed result out.
+
+```package-install
+zodline zod
+```
+
+The [quickstart](/docs/quickstart) builds a two-command CLI end to end.

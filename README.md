@@ -2,9 +2,11 @@
 
 [![npm version](https://img.shields.io/npm/v/zodline)](https://www.npmjs.com/package/zodline)
 [![npm downloads](https://img.shields.io/npm/dm/zodline)](https://www.npmjs.com/package/zodline)
-[![license](https://img.shields.io/npm/l/zodline)](https://github.com/robingenz/zodline/blob/main/LICENSE)
+[![license](https://img.shields.io/npm/l/zodline)](https://github.com/capawesome-team/zodline/blob/main/LICENSE)
 
 A powerful CLI parser built with TypeScript and Zod for type-safe command-line interfaces.
+
+📚 **[Documentation](https://zodline.dev/docs)** · [Quickstart](https://zodline.dev/docs/quickstart) · [API reference](https://zodline.dev/docs/reference/api)
 
 ## Features
 

@@ -1,0 +1,241 @@
+---
+title: API
+description: Every export of zodline — defineOptions, defineCommand, defineConfig, processConfig, ZodlineError and the types.
+sidebar:
+  label: API
+  icon: book-open
+---
+
+Everything is exported from the package root.
+
+```ts
+import {
+  defineCommand,
+  defineConfig,
+  defineOptions,
+  processConfig,
+  ZodlineError,
+} from 'zodline';
+
+import type {
+  CommandDefinition,
+  DefineConfig,
+  OptionsDefinition,
+  ProcessResult,
+} from 'zodline';
+```
+
+## defineOptions
+
+```ts
+function defineOptions<T extends z.ZodObject>(
+  schema: T,
+  aliases?: Record<string, string>,
+): OptionsDefinition<T>;
+```
+
+Pairs an options schema with an alias map. Returns `{ schema, aliases }` unchanged — the function exists to
+capture `T` so the schema type flows into `defineCommand`.
+
+<TypeTable
+  type={{
+    schema: {
+      type: 'z.ZodObject',
+      required: true,
+      description: 'One key per option, in camelCase.',
+    },
+    aliases: {
+      type: 'Record<string, string>',
+      description: 'Maps a short flag to a schema key, e.g. { n: "name" }.',
+    },
+  }}
+/>
+
+```ts
+const options = defineOptions(
+  z.object({
+    name: z.string().describe('Name to greet'),
+    loud: z.boolean().default(false).describe('Use uppercase'),
+  }),
+  { n: 'name', l: 'loud' },
+);
+```
+
+## defineCommand
+
+```ts
+function defineCommand<TOptions, TArgs>(config: {
+  description?: string;
+  options?: TOptions;
+  args?: TArgs;
+  action: (options, args) => void | Promise<void>;
+}): CommandDefinition<…>;
+```
+
+Describes one command. Returns its input; the generics make `options` and `args` inside `action` inferred
+rather than `any`.
+
+<TypeTable
+  type={{
+    description: {
+      type: 'string',
+      description: 'Shown in the help screens.',
+    },
+    options: {
+      type: 'OptionsDefinition',
+      description: 'The result of defineOptions().',
+    },
+    args: {
+      type: 'z.ZodType',
+      description: 'Schema applied to the positional argument array.',
+    },
+    action: {
+      type: '(options, args) => void | Promise<void>',
+      required: true,
+      description: 'Never invoked by processConfig — you call it.',
+    },
+  }}
+/>
+
+## defineConfig
+
+```ts
+function defineConfig<TCommands>(config: DefineConfig<TCommands>): DefineConfig<TCommands>;
+```
+
+Collects commands and CLI metadata.
+
+<TypeTable
+  type={{
+    meta: {
+      type: '{ name?: string; version?: string; description?: string }',
+      description: 'Identity used by the help screens and --version.',
+    },
+    commands: {
+      type: 'Record<string, CommandDefinition>',
+      required: true,
+      description: 'Keys are the names users type.',
+    },
+    defaultCommand: {
+      type: 'CommandDefinition',
+      description: 'Runs when no command name is given. Never receives positional arguments.',
+    },
+  }}
+/>
+
+## processConfig
+
+```ts
+function processConfig<TCommands>(
+  config: DefineConfig<TCommands>,
+  args: string[],
+): ProcessResult;
+```
+
+Parses and validates `args`, then returns the matched command with its typed `options` and `args`. **Does not
+call the action.**
+
+Pass `process.argv.slice(2)` — the array must not include the node binary or the script path.
+
+```ts
+const result = processConfig(config, process.argv.slice(2));
+await result.command.action(result.options, result.args);
+```
+
+### Control flow
+
+<Steps>
+  <Step title="Parse flags">argv is split into flags and positional arguments.</Step>
+  <Step title="Resolve the command">
+    The first positional argument names the command. With none, `--version` and `--help` are handled (both
+    exit `0`), then `defaultCommand`, then a `ZodlineError`.
+  </Step>
+  <Step title="Per-command help">`--help` after a command name prints its options and exits `0`.</Step>
+  <Step title="Validate">
+    Options run through the options pipeline; positional arguments run through the `args` schema.
+  </Step>
+</Steps>
+
+### Throws
+
+| Condition                                | Error                                                   |
+| ---------------------------------------- | ------------------------------------------------------- |
+| No command and no `defaultCommand`        | `ZodlineError: No command specified.`                   |
+| Unknown command                           | `ZodlineError: Unknown command: <name>`                 |
+| Unknown option                            | `ZodlineError: Unknown option: --<name>`                |
+| Options schema failure                    | `ZodError`                                              |
+| Args schema failure                       | `Error: Argument validation failed: …`                  |
+
+:::warning
+`--help` and `--version` call `process.exit(0)` instead of returning.
+:::
+
+## ZodlineError
+
+```ts
+class ZodlineError extends Error {
+  name: 'ZodlineError';
+}
+```
+
+Thrown for parse-level problems: no command, unknown command, unknown option. Schema failures are Zod's
+errors, not this one.
+
+```ts
+if (error instanceof ZodlineError) {
+  console.error(error.message);
+  process.exit(2);
+}
+```
+
+## Types
+
+### OptionsDefinition
+
+```ts
+interface OptionsDefinition<T extends z.ZodObject = z.ZodObject> {
+  schema: T;
+  aliases?: Record<string, string> | undefined;
+}
+```
+
+### CommandDefinition
+
+```ts
+interface CommandDefinition<TOptions extends z.ZodObject, TArgs extends z.ZodType | undefined> {
+  description?: string;
+  options?: OptionsDefinition<TOptions>;
+  args?: TArgs;
+  action: (
+    options: TOptions extends z.ZodObject ? z.infer<TOptions> : {},
+    args: TArgs extends z.ZodType ? z.infer<TArgs> : undefined,
+  ) => void | Promise<void>;
+}
+```
+
+### DefineConfig
+
+```ts
+interface DefineConfig<TCommands extends Record<string, CommandDefinition>> {
+  meta?: {
+    name?: string;
+    version?: string;
+    description?: string;
+  };
+  commands: TCommands;
+  defaultCommand?: CommandDefinition;
+}
+```
+
+### ProcessResult
+
+```ts
+interface ProcessResult<TCommand extends CommandDefinition> {
+  command: TCommand;
+  options: z.infer<TCommand['options']['schema']>;
+  args: z.infer<TCommand['args']>;
+}
+```
+
+`options` resolves to `{}` for a command without options; `args` resolves to `undefined` for a command
+without an `args` schema.

@@ -1,0 +1,124 @@
+---
+title: Error handling
+description: Which failures throw ZodlineError, which throw ZodError, and how to turn them into good CLI output.
+sidebar:
+  label: Error handling
+  icon: octagon-alert
+---
+
+`processConfig` throws on every failure it cannot resolve. Three error types come out of it, and telling them
+apart is what lets you print something useful.
+
+## The three error types
+
+| Failure                                       | Thrown                                        |
+| --------------------------------------------- | --------------------------------------------- |
+| No command given, and no `defaultCommand`      | `ZodlineError`                                |
+| Unknown command                                | `ZodlineError`                                |
+| Unknown option                                 | `ZodlineError`                                |
+| Option failed schema validation                | `ZodError` (from Zod)                         |
+| Positional args failed schema validation       | `Error`, message prefixed `Argument validation failed:` |
+
+`ZodlineError` is exported from the package and extends `Error` with `name: 'ZodlineError'`.
+
+## A complete entry point
+
+```js title="cli.js"
+#!/usr/bin/env node
+import { z } from 'zod';
+import { processConfig, ZodlineError } from 'zodline';
+import { config } from './config.js';
+
+try {
+  const result = processConfig(config, process.argv.slice(2));
+  await result.command.action(result.options, result.args);
+} catch (error) {
+  if (error instanceof ZodlineError) {
+    console.error(error.message);
+    process.exit(2);
+  }
+
+  if (error instanceof z.ZodError) {
+    for (const issue of error.issues) {
+      console.error(`--${issue.path.join('.')}: ${issue.message}`);
+    }
+    process.exit(2);
+  }
+
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+```
+
+Separating exit codes is worth the few lines: `2` for "you typed it wrong", `1` for "the command failed".
+
+:::note
+`ZodlineError` messages already contain ANSI color codes around the offending flag or command name, so print
+them as-is rather than reformatting.
+:::
+
+## Unknown options
+
+Any flag that is not a schema key (camelCase or kebab-case), not an alias, and not `help`/`version` is
+rejected before validation:
+
+```bash
+my-cli greet --name World --shout
+# Unknown option: --shout
+```
+
+The check also applies to commands that declare no options at all — there is no permissive mode.
+
+```bash
+my-cli version --anything
+# Unknown option: --anything
+```
+
+:::warning
+Because unknown options are checked **before** aliases are resolved, an alias that is missing from the alias
+map produces `Unknown option`, not a validation error. If `-n` is rejected, the alias map is what to check.
+:::
+
+## Validation errors
+
+Option failures surface as Zod issues, with the schema key as the path:
+
+```bash
+my-cli serve --port abc
+# --port: Invalid input: expected number, received NaN
+```
+
+Argument failures are flattened into one message by `zodline` itself, prefixed with the failing path:
+
+```bash
+my-cli copy src.txt
+# Argument validation failed: : Too small: expected array to have >=2 items
+```
+
+The path is the position index when one argument is wrong, and empty when the array as a whole is — a
+too-short tuple reports a length error, not a missing element.
+
+## Errors from your action
+
+Anything your `action` throws propagates to the caller — `zodline` is not in the call stack at that point.
+The `try`/`catch` above already covers it, which is another benefit of
+[owning the call site](/docs/guides/parsing-vs-execution).
+
+## Improving the message
+
+Zod's own messages are the ones users read, so it pays to set them where the default is unhelpful:
+
+```ts
+z.object({
+  port: z.coerce
+    .number({ message: 'Expected a port number, for example --port 8080' })
+    .int()
+    .min(1)
+    .max(65535)
+    .describe('Port to listen on'),
+});
+```
+
+<Card title="Reference: API" icon="book-open" href="/docs/reference/api">
+  Every export, with its full signature.
+</Card>

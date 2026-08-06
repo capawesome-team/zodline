@@ -1,0 +1,86 @@
+---
+import { getCollection } from 'astro:content';
+import PageLayout from 'blume/components/layout/PageLayout.astro';
+import Icon from 'blume/components/Icon.astro';
+import data from 'blume:data';
+
+const { config } = data;
+
+// Each route's id matches its collection entry id.
+const routeByEntryId = new Map(data.routes.map((route) => [route.entryId, route.path]));
+
+const posts = (await getCollection('docs'))
+  .filter((entry) => entry.data.type === 'blog' && !entry.data.draft)
+  .map((entry) => ({
+    date: new Date(entry.data.date),
+    description: entry.data.description,
+    href: routeByEntryId.get(entry.id),
+    title: entry.data.title,
+  }))
+  .filter((post) => post.href)
+  .toSorted((a, b) => Number(b.date) - Number(a.date));
+
+const dateFormatter = new Intl.DateTimeFormat('en', { dateStyle: 'long' });
+const feed = data.feeds.find((entry) => entry.href.includes('/blog/'));
+---
+
+<PageLayout
+  site={{ title: config.title, description: config.description }}
+  logo={config.logo}
+  banner={config.banner}
+  analytics={config.analytics}
+  navigation={data.navigation}
+  favicon={config.favicon}
+  fontCssVars={data.fontCssVars}
+  themeMode={config.theme.mode}
+  searchEnabled={config.search.enabled}
+  siteUrl={config.site}
+  ogEnabled={config.og.enabled}
+  page={{
+    title: 'Blog — zodline',
+    description: 'Notes and deep dives on building type-safe command line tools with Zod schemas.',
+    route: '/blog',
+  }}
+>
+  <div class="mx-auto w-full max-w-3xl px-6 py-16">
+    <header class="flex items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-semibold tracking-tight">Blog</h1>
+        <p class="mt-3 text-muted-foreground">
+          Notes and deep dives on building type-safe command line tools with Zod schemas.
+        </p>
+      </div>
+      {
+        feed && (
+          <a
+            href={feed.href}
+            class="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Icon name="rss" size={14} />
+            RSS
+          </a>
+        )
+      }
+    </header>
+
+    <div class="mt-10 flex flex-col gap-4">
+      {
+        posts.map((post) => (
+          <a href={post.href} class="group rounded-blume border border-border p-5 transition-colors hover:bg-muted">
+            <time datetime={post.date.toISOString().slice(0, 10)} class="text-xs text-muted-foreground">
+              {dateFormatter.format(post.date)}
+            </time>
+            <h2 class="mt-1.5 inline-flex w-full items-center gap-1.5 text-lg font-semibold">
+              {post.title}
+              <span class="opacity-0 transition-opacity group-hover:opacity-100">
+                <Icon name="arrow-right" size={14} />
+              </span>
+            </h2>
+            <p class="mt-1.5 text-sm text-muted-foreground">{post.description}</p>
+          </a>
+        ))
+      }
+      {posts.length === 0 && <p class="text-muted-foreground">No posts yet.</p>}
+    </div>
+  </div>
+</PageLayout>

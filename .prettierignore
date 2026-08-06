@@ -4,3 +4,13 @@ build/
 coverage/
 *.log
 .env*
+CHANGELOG.md
+
+# Docs content and Blume build output
+docs/
+blog/
+*.mdx
+.blume/
+.blume-dist/
+.blume-verify/
+.astro/

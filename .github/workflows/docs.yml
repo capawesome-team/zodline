@@ -1,0 +1,56 @@
+name: Docs
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CLOUDFLARE_PROJECT_NAME: zodline-page
+  NODE_VERSION: 24
+  WRANGLER_VERSION: 4.78.0
+
+jobs:
+  deploy:
+    name: Deploy
+    if: github.repository == 'capawesome-team/zodline'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so blume can derive per-page lastModified / sitemap
+          # <lastmod> from git commit times (shallow clone dates them all alike).
+          fetch-depth: 0
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build docs
+        run: npm run docs:build
+        env:
+          # Lets the github-releases content source populate the /changelog timeline.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        id: cloudflare-deployment
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy .blume-dist --project-name ${{
+            env.CLOUDFLARE_PROJECT_NAME }} --branch ${{ github.ref_name }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+      - name: Comment the preview url
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.number }}
+          body: |
+            Deploy preview available at: ${{ steps.cloudflare-deployment.outputs.deployment-url }}.
+
+            Built with commit ${{ github.event.pull_request.head.sha }}.

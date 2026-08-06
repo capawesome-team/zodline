@@ -1,0 +1,126 @@
+---
+title: Help and version
+description: The generated help screens, where their text comes from, and how --help and --version behave.
+sidebar:
+  label: Help and version
+  icon: circle-help
+---
+
+`zodline` generates both help screens from what you already declared: `meta`, command descriptions, schema
+keys and `.describe()` text. There is nothing to keep in sync by hand.
+
+## Meta
+
+`meta` supplies the CLI's own identity:
+
+```ts
+export const config = defineConfig({
+  meta: {
+    name: 'my-cli',
+    version: '1.0.0',
+    description: 'A simple example CLI',
+  },
+  commands: { greet, copy },
+});
+```
+
+<TypeTable
+  type={{
+    name: {
+      type: 'string',
+      description: 'Used in usage lines and the per-command help hint. Falls back to "cli".',
+    },
+    version: {
+      type: 'string',
+      description: 'Printed by --version. Without it, --version does nothing.',
+    },
+    description: {
+      type: 'string',
+      description: 'One-line summary above the usage line.',
+    },
+  }}
+/>
+
+## The command list
+
+`my-cli --help`, or running the CLI with no command and no `defaultCommand`:
+
+```text
+A simple example CLI (my-cli v1.0.0)
+
+USAGE my-cli greet|copy
+
+COMMANDS
+
+  greet    Greet someone
+  copy     Copy a file to another location
+
+Use my-cli <command> --help for more information about a command.
+```
+
+Commands appear in the order they are declared in `commands`, each with its `description`.
+
+## Per-command help
+
+`my-cli greet --help`:
+
+```text
+Greet someone (my-cli greet v1.0.0)
+
+USAGE my-cli greet [OPTIONS]
+
+OPTIONS
+
+  --name, -n    Name to greet
+  --loud, -l    Use uppercase (default: false)
+```
+
+Each line is built from the schema:
+
+- the **long form** is the schema key in kebab-case
+- the **short form** comes from the alias map
+- the **description** is the option's `.describe()` text
+- `(default: …)` is read off `.default()`, including through an `.optional()` wrapper
+
+`[OPTIONS]` appears only when the command declares options; `[ARGS]` only when it declares an `args` schema.
+
+:::note
+Option descriptions come from `.describe()` on the field. An option with no description still shows up, just
+without explanatory text — worth checking before a release.
+:::
+
+## Version
+
+```bash
+my-cli --version
+# 1.0.0
+```
+
+`--version` is only handled when no command name was given **and** `meta.version` is set. `my-cli greet
+--version` is treated as a flag on `greet`, not as a version request.
+
+## Behaviour
+
+| Invocation                        | Result                                                     |
+| --------------------------------- | ---------------------------------------------------------- |
+| `my-cli --help`                   | Prints the command list, then exits with code `0`.          |
+| `my-cli <command> --help`          | Prints that command's options, then exits with code `0`.    |
+| `my-cli --version`                | Prints `meta.version`, then exits with code `0`.            |
+| `my-cli <unknown>`                | Prints the command list, then throws `ZodlineError`.        |
+| `my-cli` (no `defaultCommand`)    | Prints the command list, then throws `ZodlineError`.        |
+
+:::warning
+`--help` and `--version` call `process.exit(0)` from inside `processConfig`. Code after the call does not run.
+Tests around those paths need to spy on `process.exit` or spawn a subprocess.
+:::
+
+## What is not built in
+
+- `-h` and `-v` are not registered. They are rejected as unknown options unless you map them yourself with an
+  alias.
+- `help` as a subcommand (`my-cli help greet`) does not exist. Add it to `commands` if you want it.
+- Colors are always emitted as ANSI escape codes; there is no flag to disable them.
+
+<Card title="Next: Error handling" icon="octagon-alert" href="/docs/guides/error-handling">
+  Which failures throw what, and how to report them.
+</Card>

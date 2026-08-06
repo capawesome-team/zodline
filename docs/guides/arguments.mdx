@@ -1,0 +1,120 @@
+---
+title: Arguments
+description: Validate positional arguments with a Zod schema — tuples for fixed shapes, arrays for variadic input.
+sidebar:
+  label: Arguments
+  icon: list-ordered
+---
+
+Everything that is not a flag is a positional argument. `zodline` collects them in order, drops the command
+name, and passes the rest to the command's `args` schema.
+
+```bash
+my-cli copy src.txt dest.txt --verbose
+#        ^command ^args
+```
+
+## Fixed shape: tuples
+
+A `z.tuple` fixes the count and gives each position its own type and description:
+
+```ts
+import { z } from 'zod';
+import { defineCommand } from 'zodline';
+
+export const copy = defineCommand({
+  description: 'Copy a file to another location',
+  args: z.tuple([z.string().describe('Source file'), z.string().describe('Destination file')]),
+  action: async (_options, args) => {
+    const [source, destination] = args;
+    console.log(`Copied ${source} to ${destination}`);
+  },
+});
+```
+
+`args` is typed `[string, string]`, so destructuring needs no length check. Passing the wrong number of
+arguments fails validation.
+
+## Variadic: arrays
+
+Use `z.array` when the count is open-ended:
+
+```ts
+export const remove = defineCommand({
+  description: 'Delete one or more files',
+  args: z.array(z.string()).min(1).describe('Files to delete'),
+  action: async (_options, files) => {
+    for (const file of files) {
+      console.log(`Deleting ${file}`);
+    }
+  },
+});
+```
+
+```bash
+my-cli remove a.txt b.txt c.txt
+```
+
+## Mixed shape: tuple with a rest element
+
+A required head followed by any number of extras:
+
+```ts
+args: z.tuple([z.string().describe('Destination')]).rest(z.string().describe('Sources'));
+```
+
+## Coercion
+
+Positional arguments are strings, exactly like flag values. Coerce anything else:
+
+```ts
+args: z.tuple([z.string().describe('File'), z.coerce.number().int().describe('Line number')]);
+```
+
+## Optional positions
+
+`.optional()` inside a tuple makes trailing positions optional:
+
+```ts
+args: z.tuple([z.string().describe('Source'), z.string().optional().describe('Destination')]);
+```
+
+## Omitting the schema
+
+Without an `args` schema, `action` receives the raw `string[]` and nothing is validated:
+
+```ts
+export const echo = defineCommand({
+  description: 'Print the arguments back',
+  action: async (_options, args) => {
+    console.log(args.join(' '));
+  },
+});
+```
+
+:::note
+The parameter is typed `undefined` when no schema is declared, even though the raw array is passed at
+runtime. Declare an `args` schema whenever you intend to read the values — you get types and validation in
+one step.
+:::
+
+## Validation failures
+
+An `args` schema failure throws a plain `Error` whose message lists the failing paths. When a specific
+position is wrong, the path is its index:
+
+```text
+Argument validation failed: 1: Invalid input: expected number, received NaN
+```
+
+When the array itself is the wrong length, the path is empty:
+
+```text
+Argument validation failed: : Too small: expected array to have >=2 items
+```
+
+Option failures throw a `ZodError` instead. [Error handling](/docs/guides/error-handling) covers both.
+
+<Card title="Next: Parsing vs. execution" icon="split" href="/docs/guides/parsing-vs-execution">
+  Why processConfig never calls your action.
+</Card>

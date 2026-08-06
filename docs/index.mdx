@@ -1,0 +1,107 @@
+---
+title: Introduction
+description: A type-safe CLI parser built on Zod. Declare commands, options and positional args as schemas and get a fully-typed, validated result.
+sidebar:
+  label: Introduction
+  icon: rocket
+---
+
+`zodline` turns Zod schemas into a command-line interface. You declare what your CLI accepts — commands,
+options, positional arguments — and `zodline` parses `process.argv`, validates it against those schemas, and
+hands back a **fully-typed result**. The types come from the schemas you already wrote; there are no generics
+to thread through by hand.
+
+It has **zero runtime dependencies** — Zod is the only peer dependency — and ships as **ESM only**.
+
+:::note
+`zodline` is `0.x` — the API may change between minor releases.
+:::
+
+## Why zodline
+
+<CardGroup cols={2}>
+  <Card title="Types from schemas" icon="shield-check">
+    `options` and `args` are inferred from your Zod schemas. Rename a field and every call site fails to
+    compile.
+  </Card>
+  <Card title="Declarative" icon="file-code">
+    A command is an object: a description, an options schema, an args schema, an action. No builder chains.
+  </Card>
+  <Card title="Validation included" icon="check-check">
+    Coercion, defaults, refinements, unions — anything Zod can express, your CLI can accept.
+  </Card>
+  <Card title="Strict by default" icon="octagon-alert">
+    An unknown flag is an error, not a silently ignored key. Typos surface immediately.
+  </Card>
+  <Card title="Zero dependencies" icon="feather">
+    Nothing but Zod, which you already have. Nothing to audit, nothing to bloat your install.
+  </Card>
+  <Card title="Parse, then run" icon="split">
+    `processConfig` validates and returns. It never invokes your action, so commands stay testable.
+  </Card>
+</CardGroup>
+
+## A first look
+
+```ts
+import { z } from 'zod';
+import { defineCommand, defineConfig, defineOptions, processConfig } from 'zodline';
+
+const greet = defineCommand({
+  description: 'Greet someone',
+  options: defineOptions(
+    z.object({
+      name: z.string().describe('Name to greet'),
+      loud: z.boolean().default(false).describe('Use uppercase'),
+    }),
+    { n: 'name', l: 'loud' },
+  ),
+  action: async (options) => {
+    const greeting = `Hello, ${options.name}!`;
+    console.log(options.loud ? greeting.toUpperCase() : greeting);
+  },
+});
+
+const config = defineConfig({
+  meta: { name: 'my-cli', version: '1.0.0' },
+  commands: { greet },
+});
+
+const result = processConfig(config, process.argv.slice(2));
+await result.command.action(result.options, result.args);
+```
+
+```bash
+my-cli greet --name World --loud
+# HELLO, WORLD!
+```
+
+`options` above is typed as `{ name: string; loud: boolean }` — inferred from the schema, not declared twice.
+
+## Parsing and execution are separate
+
+`processConfig` returns `{ command, options, args }`. It does **not** call `command.action`. Running the
+command is one line you write yourself, which means you can parse an argv array in a test and assert on the
+result without executing anything.
+
+```ts
+const result = processConfig(config, ['greet', '--name', 'World']);
+
+expect(result.options).toEqual({ name: 'World', loud: false });
+```
+
+See [Parsing vs. execution](/docs/guides/parsing-vs-execution) for the full rationale.
+
+## Where to next
+
+<CardGroup cols={3}>
+  <Card title="Installation" icon="package" href="/docs/installation">
+    Install the package, check the runtime requirements.
+  </Card>
+  <Card title="Quickstart" icon="zap" href="/docs/quickstart">
+    Build a working CLI with two commands in a few minutes.
+  </Card>
+  <Card title="API reference" icon="book-open" href="/docs/reference/api">
+    Every exported function, type, and error.
+  </Card>
+</CardGroup>

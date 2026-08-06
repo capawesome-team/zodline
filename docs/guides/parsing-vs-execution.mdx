@@ -1,0 +1,93 @@
+---
+title: Parsing vs. execution
+description: processConfig validates argv and returns a result. Running the command is a separate step you own.
+sidebar:
+  label: Parsing vs. execution
+  icon: split
+---
+
+`processConfig` parses `argv`, validates it, and returns `{ command, options, args }`. It does **not** call
+`command.action`. That last line is yours:
+
+```ts
+const result = processConfig(config, process.argv.slice(2));
+await result.command.action(result.options, result.args);
+```
+
+The split is deliberate. Most parsers run your handler as a side effect of parsing, which couples the two
+concerns and makes both harder to test.
+
+## Commands become testable
+
+Because parsing does not execute anything, a test can assert on the parsed result directly:
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { processConfig } from 'zodline';
+import { config } from '../src/config.js';
+
+describe('greet', () => {
+  it('applies the default for --loud', () => {
+    const result = processConfig(config, ['greet', '--name', 'World']);
+
+    expect(result.options).toEqual({ name: 'World', loud: false });
+  });
+
+  it('resolves short aliases', () => {
+    const result = processConfig(config, ['greet', '-n', 'World', '-l']);
+
+    expect(result.options.loud).toBe(true);
+  });
+});
+```
+
+The action itself is a plain function, so it can be tested in isolation too — no argv, no process.
+
+## You control what happens around the action
+
+Owning the call site means you can wrap every command without a plugin API:
+
+```ts
+const result = processConfig(config, process.argv.slice(2));
+
+const startedAt = performance.now();
+try {
+  await result.command.action(result.options, result.args);
+} finally {
+  logger.debug(`Finished in ${Math.round(performance.now() - startedAt)}ms`);
+}
+```
+
+Dry runs, telemetry, authentication checks, transaction boundaries and structured error reporting all live
+here, in ordinary code.
+
+## Inspecting without running
+
+Parsing is also useful on its own — for shell completion, for validating a stored command string, or for
+printing a plan:
+
+```ts
+const result = processConfig(config, storedArgv);
+
+console.log('Would run:', result.command.description);
+console.log('With options:', result.options);
+```
+
+## The exception: help and version
+
+Two paths do not return. `--help` and `--version` print to stdout and call `process.exit(0)` inside
+`processConfig`, because there is no meaningful result to hand back.
+
+```ts
+processConfig(config, ['--help']); // prints the command list, exits 0
+processConfig(config, ['greet', '--help']); // prints greet's options, exits 0
+```
+
+:::note
+Tests that exercise those paths have to account for the exit — spy on `process.exit`, or run the CLI as a
+subprocess.
+:::
+
+<Card title="Next: Help and version" icon="circle-help" href="/docs/guides/help-and-version">
+  What the generated screens contain and how to shape them.
+</Card>

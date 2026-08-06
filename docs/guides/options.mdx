@@ -1,0 +1,182 @@
+---
+title: Options
+description: Declare flags with defineOptions — aliases, kebab-case keys, arrays, defaults, and coercion.
+sidebar:
+  label: Options
+  icon: flag
+---
+
+Options are the flags a command accepts. `defineOptions` pairs a Zod object schema with an optional alias map:
+
+```ts
+import { z } from 'zod';
+import { defineOptions } from 'zodline';
+
+const options = defineOptions(
+  z.object({
+    name: z.string().describe('Name to greet'),
+    loud: z.boolean().default(false).describe('Use uppercase'),
+  }),
+  { n: 'name', l: 'loud' },
+);
+```
+
+The alias map is `{ shortFlag: schemaKey }` — read it as "`-n` means `--name`".
+
+## Values arrive as strings
+
+`zodline` hands Zod exactly what the shell produced: every flag value is a **string**, and a flag with no
+value is the boolean `true`. Schemas that expect other types need coercion.
+
+```ts
+z.object({
+  port: z.coerce.number().default(3000).describe('Port to listen on'),
+  retries: z.coerce.number().int().min(0).default(3).describe('Retry count'),
+  since: z.coerce.date().optional().describe('Only include entries after this date'),
+});
+```
+
+```bash
+my-cli serve --port 8080    # options.port === 8080 (number)
+```
+
+:::warning
+`z.number()` without `coerce` always fails: it receives `"8080"`, not `8080`.
+:::
+
+## Boolean flags
+
+A flag whose next argument is absent or starts with `-` becomes `true`. That makes `z.boolean()` right for
+presence-only switches:
+
+```ts
+z.object({
+  loud: z.boolean().default(false).describe('Use uppercase'),
+});
+```
+
+```bash
+my-cli greet --name World --loud     # loud: true
+my-cli greet --name World            # loud: false (from the default)
+```
+
+To accept an explicit value, use `z.stringbool()`, which parses `"true"`/`"false"` and friends:
+
+```ts
+z.object({
+  color: z.stringbool().default(true).describe('Colorize output'),
+});
+```
+
+```bash
+my-cli build --color false    # color: false
+```
+
+:::danger
+With plain `z.boolean()`, `--loud false` passes the **string** `"false"` and validation fails. `--loud=false`
+behaves the same way. Reach for `z.stringbool()` whenever a flag needs to be turned off explicitly.
+:::
+
+## kebab-case keys
+
+Schema keys are camelCase; command lines are kebab-case. `zodline` maps between them, so no extra
+configuration is needed:
+
+```ts
+z.object({
+  androidMax: z.coerce.number().optional().describe('Maximum Android version'),
+  dryRun: z.boolean().default(false).describe('Do not write anything'),
+});
+```
+
+```bash
+my-cli deploy --android-max 34 --dry-run
+# { androidMax: 34, dryRun: true }
+```
+
+Both spellings are accepted. If both appear in one invocation, the camelCase one wins.
+
+## Aliases
+
+Any option can have a short form. Aliases are resolved before validation, so the schema only ever sees the
+long key:
+
+```ts
+defineOptions(
+  z.object({
+    verbose: z.boolean().default(false).describe('Show detailed output'),
+    output: z.string().optional().describe('Write results to this file'),
+  }),
+  { v: 'verbose', o: 'output' },
+);
+```
+
+```bash
+my-cli build -v -o out.json
+```
+
+Short flags cluster: `-abc` is three boolean flags, `a`, `b` and `c`. If both `-v` and `--verbose` are passed,
+the alias wins.
+
+## Arrays
+
+Repeat a flag to collect values. A single occurrence is wrapped into an array automatically, so the schema
+does not need a union:
+
+```ts
+z.object({
+  customProperty: z.array(z.string()).default([]).describe('key=value pair, repeatable'),
+});
+```
+
+```bash
+my-cli deploy --custom-property key1=value1 --custom-property key2=value2
+# { customProperty: ['key1=value1', 'key2=value2'] }
+
+my-cli deploy --custom-property key1=value1
+# { customProperty: ['key1=value1'] }
+```
+
+Normalization looks through `.optional()` and `.default()` wrappers, so `z.array(z.string()).optional()`
+behaves the same way.
+
+## Defaults and optionality
+
+`.default()` fills a value in when the flag is absent and shows up in the generated help as
+`(default: …)`. `.optional()` leaves the key `undefined`.
+
+```ts
+z.object({
+  format: z.enum(['json', 'text']).default('text').describe('Output format'),
+  config: z.string().optional().describe('Path to a config file'),
+});
+```
+
+## Unknown options are rejected
+
+Any flag that is not a schema key (in either spelling), an alias, or `help`/`version` throws before
+validation runs:
+
+```bash
+my-cli greet --name World --shout
+# Error: Unknown option: --shout
+```
+
+This holds for commands that declare no options at all. See
+[Error handling](/docs/guides/error-handling) for the error types.
+
+## Resolution order
+
+Understanding the pipeline explains most edge cases:
+
+<Steps>
+  <Step title="Unknown-option check">Runs against the raw flag names, before anything is rewritten.</Step>
+  <Step title="Alias resolution">`-v` becomes `verbose`; the alias value wins over an explicit long form.</Step>
+  <Step title="kebab-case conversion">`android-max` becomes `androidMax`, unless `androidMax` is already set.</Step>
+  <Step title="Array normalization">Single values for array-typed fields are wrapped in an array.</Step>
+  <Step title="Schema validation">`schema.parse()` applies coercion, defaults and refinements.</Step>
+</Steps>
+
+<Card title="Next: Arguments" icon="list-ordered" href="/docs/guides/arguments">
+  Validate positional arguments with tuples, arrays and unions.
+</Card>

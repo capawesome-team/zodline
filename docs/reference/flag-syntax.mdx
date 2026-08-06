@@ -1,0 +1,115 @@
+---
+title: Flag syntax
+description: Every form the argv parser accepts, with the exact value each one produces.
+sidebar:
+  label: Flag syntax
+  icon: terminal
+---
+
+This is the complete set of rules the parser applies to `argv`, before any schema is involved. At this stage
+every value is a `string`, a `boolean`, or an array of strings.
+
+## Accepted forms
+
+| Input                    | Produces                          |
+| ------------------------ | --------------------------------- |
+| `--flag value`           | `{ flag: 'value' }`               |
+| `--flag=value`           | `{ flag: 'value' }`               |
+| `--flag`                 | `{ flag: true }`                  |
+| `-f value`               | `{ f: 'value' }`                  |
+| `-f`                     | `{ f: true }`                     |
+| `-abc`                   | `{ a: true, b: true, c: true }`   |
+| `value`                  | positional argument               |
+
+## Rules
+
+<Steps>
+
+<Step title="A long flag takes the next argument as its value">
+
+Unless that argument starts with `-`, or there is no next argument — then the flag is `true`.
+
+```bash
+my-cli build --output dist    # output: 'dist'
+my-cli build --output --watch # output: true, watch: true
+my-cli build --output         # output: true
+```
+
+</Step>
+
+<Step title="`=` binds a value explicitly">
+
+Everything after the first `=` is the value, so values may contain `=`:
+
+```bash
+my-cli deploy --property key=value    # property: 'key=value'
+```
+
+</Step>
+
+<Step title="A single-character flag behaves like a long flag">
+
+```bash
+my-cli build -o dist    # o: 'dist'
+my-cli build -o         # o: true
+```
+
+</Step>
+
+<Step title="Multi-character short flags cluster into booleans">
+
+`-abc` is three flags, never one flag named `abc` and never `a` with the value `bc`:
+
+```bash
+my-cli build -vqf    # v: true, q: true, f: true
+```
+
+A clustered flag can never carry a value. Use the single form when you need one.
+
+</Step>
+
+<Step title="A repeated flag collects into an array">
+
+```bash
+my-cli deploy --tag a --tag b    # tag: ['a', 'b']
+```
+
+The first occurrence produces a string; the second turns it into an array.
+
+</Step>
+
+<Step title="Anything else is positional">
+
+Positional arguments keep their order. The first one names the command; the rest are passed to the `args`
+schema.
+
+```bash
+my-cli copy src.txt dest.txt    # command: 'copy', args: ['src.txt', 'dest.txt']
+```
+
+</Step>
+
+</Steps>
+
+## Consequences worth knowing
+
+:::warning
+**There is no `--` separator.** A bare `--` is parsed as a flag with an empty name and is rejected as an
+unknown option — it does not mark the end of flags. A value that starts with `-` therefore cannot be passed
+positionally; use `--flag=-5` to get a leading dash into a flag value.
+:::
+
+**Negative numbers are flags.** In `--offset -5`, the `-5` starts with `-`, so `offset` becomes `true` and
+`-5` is parsed as its own flag — which then fails with `Unknown option: -5`. Write `--offset=-5` instead.
+
+**Flags may appear anywhere.** They are collected independently of position, so
+`my-cli --verbose copy a b` and `my-cli copy a b --verbose` are equivalent.
+
+**Names are not normalized here.** `--android-max` stays `android-max` through parsing; the mapping to the
+schema key `androidMax` happens later, during [options resolution](/docs/guides/options#resolution-order).
+
+## From raw flags to typed options
+
+What the parser produces is only the first step. The values then go through alias resolution, kebab-case
+mapping, array normalization and finally `schema.parse()` — which is where strings become numbers, dates or
+enums. See [Options](/docs/guides/options).
