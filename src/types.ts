@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-export class ZliError extends Error {
+export class ZodlineError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'ZliError';
+    this.name = 'ZodlineError';
   }
 }
 

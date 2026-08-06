@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { CommandDefinition, DefineConfig, OptionsDefinition, ProcessResult } from './types.js';
-import { ZliError } from './types.js';
+import { ZodlineError } from './types.js';
 
 /**
  * Parses command line arguments into flags and non-flag arguments.
@@ -352,12 +352,12 @@ function isZodArrayType(zodType: any): boolean {
  * Creates an error for unknown options with proper flag prefix and display name.
  *
  * @param optionName - The unknown option name
- * @returns ZliError with formatted error message
+ * @returns ZodlineError with formatted error message
  */
-function createUnknownOptionError(optionName: string): ZliError {
+function createUnknownOptionError(optionName: string): ZodlineError {
   const flagPrefix = optionName.length === 1 ? '-' : '--';
   const displayName = optionName.length === 1 ? optionName : camelToKebab(optionName);
-  return new ZliError(`Unknown option: \x1b[36m${flagPrefix}${displayName}\x1b[0m`);
+  return new ZodlineError(`Unknown option: \x1b[36m${flagPrefix}${displayName}\x1b[0m`);
 }
 
 /**
@@ -550,14 +550,14 @@ export function processConfig<TCommands extends Record<string, CommandDefinition
     } else {
       // Show help and throw error
       displayHelp(config.commands, config.meta);
-      throw new ZliError('No command specified.');
+      throw new ZodlineError('No command specified.');
     }
   }
 
   const command = config.commands[commandName];
   if (!command) {
     displayHelp(config.commands, config.meta);
-    throw new ZliError(`Unknown command: \x1b[36m${commandName}\x1b[0m`);
+    throw new ZodlineError(`Unknown command: \x1b[36m${commandName}\x1b[0m`);
   }
 
   const remainingArgs = commandArgs.slice(1);
@@ -574,5 +574,5 @@ export function processConfig<TCommands extends Record<string, CommandDefinition
 
 // Export main functions and types from config
 export { defineOptions, defineCommand, defineConfig } from './config.js';
-export { ZliError } from './types.js';
+export { ZodlineError } from './types.js';
 export type { OptionsDefinition, CommandDefinition, DefineConfig, ProcessResult } from './types.js';

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-`@robingenz/zli` is a type-safe CLI parser built on Zod. Users declare commands, options, and positional args as Zod schemas; the library parses `process.argv`, validates against those schemas, and returns a fully-typed result. Zod is a peer dependency (v4); the library itself ships zero runtime dependencies.
+`zodline` is a type-safe CLI parser built on Zod. Users declare commands, options, and positional args as Zod schemas; the library parses `process.argv`, validates against those schemas, and returns a fully-typed result. Zod is a peer dependency (v4); the library itself ships zero runtime dependencies.
 
 ## Commands
 
@@ -25,7 +25,7 @@ There is no ESLint; "lint" is Prettier only. `test:ui` requires the built dist.
 Three source files under `src/`, all re-exported from `src/index.ts`:
 
 - **`config.ts`** — the public builder API: `defineOptions`, `defineCommand`, `defineConfig`. These are thin identity/type-inference helpers that carry Zod generics through so consumers get inferred `options`/`args` types.
-- **`types.ts`** — shared interfaces (`OptionsDefinition`, `CommandDefinition`, `DefineConfig`, `ProcessResult`) and the `ZliError` class. `ProcessResult` uses conditional types to infer `options`/`args` from a command's schemas.
+- **`types.ts`** — shared interfaces (`OptionsDefinition`, `CommandDefinition`, `DefineConfig`, `ProcessResult`) and the `ZodlineError` class. `ProcessResult` uses conditional types to infer `options`/`args` from a command's schemas.
 - **`index.ts`** — the runtime: `processConfig` plus all internal parsing/validation/help helpers.
 
 ### Key design decision: `processConfig` does not run actions
@@ -35,11 +35,11 @@ Three source files under `src/`, all re-exported from `src/index.ts`:
 ### `processConfig` control flow (`index.ts`)
 
 1. `parseFlags` splits argv into flags and positional args (collected under the `_` key).
-2. Resolve the command name from `_[0]`. With no command: handle `--version`/`--help` (these call `process.exit(0)`), else fall back to `config.defaultCommand`, else show help and throw `ZliError`.
+2. Resolve the command name from `_[0]`. With no command: handle `--version`/`--help` (these call `process.exit(0)`), else fall back to `config.defaultCommand`, else show help and throw `ZodlineError`.
 3. Per-command `--help` calls `displayCommandHelp` and `process.exit(0)`.
 4. `processCommandExecution` runs `validateOptions` (flags) and, if `command.args` is set, `command.args.parse(args)`.
 
-Note that `processConfig` both throws (`ZliError`) **and** calls `process.exit(0)` on help/version paths — tests must account for both exit styles.
+Note that `processConfig` both throws (`ZodlineError`) **and** calls `process.exit(0)` on help/version paths — tests must account for both exit styles.
 
 ### Flag parsing rules (`parseFlags`)
 
@@ -52,7 +52,7 @@ Note that `processConfig` both throws (`ZliError`) **and** calls `process.exit(0
 
 Order matters: **unknown-option check → alias resolution → kebab→camel conversion → array normalization → `schema.parse`**.
 
-- **Unknown options throw.** Any flag not in the schema (as camelCase or kebab-case), not an alias, and not `help`/`version` raises a `ZliError`. This holds even when a command has no options schema.
+- **Unknown options throw.** Any flag not in the schema (as camelCase or kebab-case), not an alias, and not `help`/`version` raises a `ZodlineError`. This holds even when a command has no options schema.
 - **kebab-case ↔ camelCase**: users may pass `--android-max` for a schema key `androidMax`; camelCase wins if both are present (`resolveKebabCase`).
 - **Array normalization**: a single value for an array-typed field is wrapped in an array before validation (`normalizeArrayFields`).
 

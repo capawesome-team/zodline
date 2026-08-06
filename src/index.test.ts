@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import { processConfig, defineConfig, defineCommand, defineOptions } from './index.js';
-import { ZliError } from './types.js';
+import { ZodlineError } from './types.js';
 
 describe('index', () => {
   // Mock console methods
@@ -216,7 +216,7 @@ describe('index', () => {
       },
     });
 
-    expect(() => processConfig(config, [])).toThrow(ZliError);
+    expect(() => processConfig(config, [])).toThrow(ZodlineError);
     expect(() => processConfig(config, [])).toThrow('No command specified.');
   });
 
@@ -309,7 +309,7 @@ describe('index', () => {
       },
     });
 
-    expect(() => processConfig(config, ['test', '--unknown'])).toThrow(ZliError);
+    expect(() => processConfig(config, ['test', '--unknown'])).toThrow(ZodlineError);
     expect(() => processConfig(config, ['test', '--unknown'])).toThrow('Unknown option: \x1b[36m--unknown\x1b[0m');
   });
 
@@ -328,7 +328,7 @@ describe('index', () => {
       },
     });
 
-    expect(() => processConfig(config, ['test', '-x'])).toThrow(ZliError);
+    expect(() => processConfig(config, ['test', '-x'])).toThrow(ZodlineError);
     expect(() => processConfig(config, ['test', '-x'])).toThrow('Unknown option: \x1b[36m-x\x1b[0m');
   });
 
@@ -346,7 +346,7 @@ describe('index', () => {
       },
     });
 
-    expect(() => processConfig(config, ['test', '--no-build'])).toThrow(ZliError);
+    expect(() => processConfig(config, ['test', '--no-build'])).toThrow(ZodlineError);
     expect(() => processConfig(config, ['test', '--no-build'])).toThrow('Unknown option: \x1b[36m--no-build\x1b[0m');
   });
 
@@ -396,7 +396,7 @@ describe('index', () => {
       },
     });
 
-    expect(() => processConfig(config, ['test', '--unknown'])).toThrow(ZliError);
+    expect(() => processConfig(config, ['test', '--unknown'])).toThrow(ZodlineError);
     expect(() => processConfig(config, ['test', '--unknown'])).toThrow('Unknown option: \x1b[36m--unknown\x1b[0m');
   });
 

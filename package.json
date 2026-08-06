@@ -1,12 +1,12 @@
 {
-  "name": "@robingenz/zli",
+  "name": "zodline",
   "version": "0.2.0",
   "description": "A CLI parser built with Zod.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "zli-example": "./example.js"
+    "zodline-example": "./example.js"
   },
   "files": [
     "dist"
@@ -19,10 +19,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/robingenz/zli.git"
+    "url": "git+https://github.com/robingenz/zodline.git"
   },
   "bugs": {
-    "url": "https://github.com/robingenz/zli/issues"
+    "url": "https://github.com/robingenz/zodline/issues"
   },
   "scripts": {
     "build": "tsc",

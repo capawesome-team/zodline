@@ -1,8 +1,8 @@
-# @robingenz/zli
+# zodline
 
-[![npm version](https://img.shields.io/npm/v/@robingenz/zli)](https://www.npmjs.com/package/@robingenz/zli)
-[![npm downloads](https://img.shields.io/npm/dm/@robingenz/zli)](https://www.npmjs.com/package/@robingenz/zli)
-[![license](https://img.shields.io/npm/l/@robingenz/zli)](https://github.com/robingenz/zli/blob/main/LICENSE)
+[![npm version](https://img.shields.io/npm/v/zodline)](https://www.npmjs.com/package/zodline)
+[![npm downloads](https://img.shields.io/npm/dm/zodline)](https://www.npmjs.com/package/zodline)
+[![license](https://img.shields.io/npm/l/zodline)](https://github.com/robingenz/zodline/blob/main/LICENSE)
 
 A powerful CLI parser built with TypeScript and Zod for type-safe command-line interfaces.
 
@@ -23,8 +23,33 @@ A powerful CLI parser built with TypeScript and Zod for type-safe command-line i
 ## Installation
 
 ```bash
-npm install @robingenz/zli zod
+npm install zodline zod
 ```
+
+## Migration from `@robingenz/zli`
+
+`zodline` was previously published as `@robingenz/zli`. To migrate:
+
+1. Replace the dependency:
+
+   ```bash
+   npm uninstall @robingenz/zli
+   npm install zodline
+   ```
+
+2. Update import specifiers:
+
+   ```diff
+   - import { ... } from '@robingenz/zli';
+   + import { ... } from 'zodline';
+   ```
+
+3. Rename the `ZliError` export to `ZodlineError` (the public API is otherwise unchanged):
+
+   ```diff
+   - import { ZliError } from '@robingenz/zli';
+   + import { ZodlineError } from 'zodline';
+   ```
 
 ## Usage
 
@@ -32,7 +57,7 @@ npm install @robingenz/zli zod
 
 ```javascript
 import { z } from 'zod';
-import { defineConfig, defineCommand, defineOptions, processConfig } from '@robingenz/zli';
+import { defineConfig, defineCommand, defineOptions, processConfig } from 'zodline';
 
 // Define a simple command
 const greetCommand = defineCommand({
@@ -163,7 +188,7 @@ const options = defineOptions(
 
 ### Flag Parsing
 
-`@robingenz/zli` supports various flag formats:
+`zodline` supports various flag formats:
 
 ```bash
 # Long flags
