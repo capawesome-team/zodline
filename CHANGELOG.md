@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.0](https://github.com/capawesome-team/zodline/compare/v0.2.0...v0.3.0) (2026-08-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* package renamed from @robingenz/zli to zodline; the
+ZliError export is now ZodlineError.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+### Features
+
+* rename package to zodline ([39b07ab](https://github.com/capawesome-team/zodline/commit/39b07ab466c389a63cd230a630e318042beb582d))
+
 ## [0.2.0](https://github.com/robingenz/zli/compare/v0.1.7...v0.2.0) (2025-09-11)
 
 

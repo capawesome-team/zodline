@@ -1,6 +1,6 @@
 {
   "name": "zodline",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A CLI parser built with Zod.",
   "type": "module",
   "main": "dist/index.js",
