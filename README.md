@@ -4,23 +4,24 @@
 [![npm downloads](https://img.shields.io/npm/dm/zodline)](https://www.npmjs.com/package/zodline)
 [![license](https://img.shields.io/npm/l/zodline)](https://github.com/capawesome-team/zodline/blob/main/LICENSE)
 
-A powerful CLI parser built with TypeScript and Zod for type-safe command-line interfaces.
+Build type-safe command-line interfaces with Zod. Declare your commands, options and arguments as schemas — validation, TypeScript types and help output come for free.
 
 📚 **[Documentation](https://zodline.dev/docs)** · [Quickstart](https://zodline.dev/docs/quickstart) · [API reference](https://zodline.dev/docs/reference/api)
 
 ## Features
 
-- 🛡️ **Type-safe**: Built with TypeScript and Zod for runtime validation.
-- 📋 **Declarative**: Define commands, options, and arguments with simple schemas.
-- 🔄 **Flexible parsing**: Support for long flags, short flags, and flag clustering.
-- 🔀 **Smart conversion**: Automatic kebab-case to camelCase conversion.
-- 🏷️ **Alias support**: Define short aliases for any option.
-- 📦 **Array handling**: Automatic normalization of single values to arrays.
-- 🎯 **Default commands**: Set a default command to run when no command is specified.
-- ❓ **Help message**: Automatic help generation for commands and options.
-- ⚠️ **Error handling**: Clear, actionable error messages.
-- 🚀 **Zero dependencies**: Only requires Zod as a peer dependency.
-- 📦 **ESM support**: Modern ES modules with full TypeScript support.
+- 🛡️ **Type-safe**: `options` and `args` are inferred from your schemas. Rename a field and every call site fails to compile.
+- 📋 **Declarative**: A command is a plain object — description, schemas, action. No builder chains.
+- ✅ **Validation included**: Coercion, defaults, refinements, unions — anything Zod can express, your CLI can accept.
+- 🚫 **Strict by default**: Unknown flags are errors, not silently ignored keys. Typos surface immediately.
+- ❓ **Generated help**: `--help` and `--version` are handled for you, including per-command help.
+- 🚀 **Zero dependencies**: Only Zod, which you already have.
+
+## Requirements
+
+- Node.js 16 or later
+- Zod 4 (peer dependency)
+- An ESM project — `zodline` ships no CommonJS build
 
 ## Installation
 
@@ -28,7 +29,238 @@ A powerful CLI parser built with TypeScript and Zod for type-safe command-line i
 npm install zodline zod
 ```
 
-## Migration from `@robingenz/zli`
+## Quickstart
+
+```ts
+import { z } from 'zod';
+import { defineCommand, defineConfig, defineOptions, processConfig } from 'zodline';
+
+const greet = defineCommand({
+  description: 'Greet someone',
+  options: defineOptions(
+    z.object({
+      name: z.string().describe('Name to greet'),
+      loud: z.boolean().default(false).describe('Use uppercase'),
+    }),
+    { n: 'name', l: 'loud' }, // Short aliases
+  ),
+  action: async (options) => {
+    // options is typed as { name: string; loud: boolean }
+    const greeting = `Hello, ${options.name}!`;
+    console.log(options.loud ? greeting.toUpperCase() : greeting);
+  },
+});
+
+const config = defineConfig({
+  meta: {
+    name: 'my-cli',
+    version: '1.0.0',
+    description: 'A simple CLI example',
+  },
+  commands: { greet },
+});
+
+const result = processConfig(config, process.argv.slice(2));
+await result.command.action(result.options, result.args);
+```
+
+Run it:
+
+```bash
+$ my-cli greet --name Alice
+Hello, Alice!
+
+$ my-cli greet -n Bob --loud
+HELLO, BOB!
+```
+
+Help is generated from the same schemas:
+
+```
+$ my-cli --help
+
+A simple CLI example (my-cli v1.0.0)
+
+USAGE my-cli greet
+
+COMMANDS
+
+  greet    Greet someone
+
+Use my-cli <command> --help for more information about a command.
+```
+
+```
+$ my-cli greet --help
+
+Greet someone (my-cli greet v1.0.0)
+
+USAGE my-cli greet [OPTIONS]
+
+OPTIONS
+
+  --name, -n    Name to greet
+  --loud, -l    Use uppercase (default: false)
+```
+
+## Usage
+
+### Commands
+
+Commands are a flat record of name to definition. Group related commands with a separator in the name:
+
+```ts
+const config = defineConfig({
+  meta: { name: 'my-app', version: '1.0.0' },
+  commands: {
+    start: startCommand,
+    'apps:list': appsListCommand,
+    'apps:create': appsCreateCommand,
+  },
+});
+```
+
+Set `defaultCommand` to run a command when none is given:
+
+```ts
+const config = defineConfig({
+  meta: { name: 'my-app', version: '1.0.0' },
+  commands: { start: startCommand, build: buildCommand },
+  defaultCommand: startCommand,
+});
+```
+
+- `my-app` runs `startCommand`
+- `my-app build` runs `buildCommand`
+- `my-app --help` still shows the help message
+
+### Options
+
+`defineOptions` takes a Zod object schema and an optional map from short alias to schema key. The `.describe()` text becomes the option's help line, and `.default()` is shown in help.
+
+```ts
+const options = defineOptions(
+  z.object({
+    port: z.coerce.number().min(1).max(65535).default(3000).describe('Port to listen on'),
+    files: z.array(z.string()).describe('Input files'),
+    tags: z.array(z.string()).optional().describe('Tags to apply'),
+  }),
+  { p: 'port', f: 'files' },
+);
+```
+
+Everything from the command line arrives as a string, so use `z.coerce` for numbers and other non-string types.
+
+A single value for an array field is wrapped automatically, so both of these produce `['a.txt']`:
+
+```bash
+--files a.txt
+--files a.txt --files b.txt   # ['a.txt', 'b.txt']
+```
+
+### Arguments
+
+Positional arguments are validated by a single schema that receives the whole array. Use `z.tuple` for a fixed shape and `z.array` for a variable number:
+
+```ts
+const copy = defineCommand({
+  description: 'Copy a file',
+  args: z.tuple([z.string().describe('Source file'), z.string().describe('Destination file')]),
+  options: defineOptions(z.object({ verbose: z.boolean().default(false) }), { v: 'verbose' }),
+  action: async (options, args) => {
+    const [source, destination] = args; // [string, string]
+    console.log(`Copying ${source} to ${destination}`);
+  },
+});
+```
+
+### Flag syntax
+
+| Form | Example | Result |
+| --- | --- | --- |
+| Long flag | `--verbose` | `verbose: true` |
+| Long flag with value | `--port 3000`, `--port=3000` | `port: '3000'` |
+| Short flag | `-v`, `-p 3000` | resolved through the alias map |
+| Clustered short flags | `-abc` | `a: true, b: true, c: true` |
+| Kebab-case | `--max-retries` | matches the schema key `maxRetries` |
+| Repeated flag | `--file a.txt --file b.txt` | `file: ['a.txt', 'b.txt']` |
+
+A flag whose next argument starts with `-`, or which is last, becomes `true`.
+
+### Help and version
+
+- `<cli> --help` prints the command list, `<cli> <command> --help` prints that command's options.
+- `<cli> --version` prints `meta.version`. It is only handled when no command is given and `meta.version` is set.
+
+Both paths print to stdout and call `process.exit(0)`. Keep that in mind when calling `processConfig` from tests.
+
+### Error handling
+
+`processConfig` validates and returns — it never invokes your action. That keeps parsing and execution separate, so commands stay testable.
+
+```ts
+import { z } from 'zod';
+import { processConfig, ZodlineError } from 'zodline';
+
+try {
+  const result = processConfig(config, process.argv.slice(2));
+  await result.command.action(result.options, result.args);
+} catch (error) {
+  if (error instanceof ZodlineError) {
+    // Unknown command, unknown option, or no command specified
+    console.error(error.message);
+  } else if (error instanceof z.ZodError) {
+    // An option failed schema validation
+    console.error(z.prettifyError(error));
+  } else {
+    throw error;
+  }
+  process.exit(1);
+}
+```
+
+Positional argument failures are currently thrown as a plain `Error` prefixed with `Argument validation failed:`.
+
+## API
+
+| Export | Description |
+| --- | --- |
+| `defineOptions(schema, aliases?)` | Pairs a Zod object schema with an optional short-alias map. |
+| `defineCommand(definition)` | Defines a command from a `description`, `options`, `args` and `action`. |
+| `defineConfig(config)` | Defines the CLI from `meta`, `commands` and an optional `defaultCommand`. |
+| `processConfig(config, argv)` | Parses and validates `argv`, returning `{ command, options, args }`. |
+| `ZodlineError` | Thrown for unknown commands and unknown options. |
+
+See the [API reference](https://zodline.dev/docs/reference/api) for full signatures and types.
+
+## Comparison
+
+|  | zodline | commander | yargs |
+| --- | --- | --- | --- |
+| Validation | Zod schemas | custom parser functions | built-in coercions |
+| Option types | inferred from the schema | manual type annotations | inferred from the builder chain |
+| Runtime dependencies | 0 | 0 | 6 |
+| Module format | ESM only | CJS and ESM | CJS and ESM |
+| Parsing and execution | separate | coupled | coupled |
+
+Dependency counts as of commander 15 and yargs 18. Both cover more surface than `zodline` — nested subcommands, shell completion, i18n. `zodline` is deliberately smaller and leans on Zod for everything it can.
+
+## Used By
+
+- [Capawesome Team CLI](https://github.com/capawesome-team/cli) — the Capawesome Cloud CLI to manage Live Updates and more.
+
+## Contributing
+
+```bash
+npm install
+npm test
+npm run build
+npm run lint
+```
+
+Bug reports and feature requests are welcome in the [issue tracker](https://github.com/capawesome-team/zodline/issues).
+
+## Migration
 
 `zodline` was previously published as `@robingenz/zli`. To migrate:
 
@@ -52,204 +284,6 @@ npm install zodline zod
    - import { ZliError } from '@robingenz/zli';
    + import { ZodlineError } from 'zodline';
    ```
-
-## Usage
-
-### Basic Example
-
-```javascript
-import { z } from 'zod';
-import { defineConfig, defineCommand, defineOptions, processConfig } from 'zodline';
-
-// Define a simple command
-const greetCommand = defineCommand({
-  description: 'Greet someone',
-  options: defineOptions(
-    z.object({
-      name: z.string().describe('Name to greet'),
-      loud: z.boolean().default(false).describe('Use uppercase'),
-    }),
-    { n: 'name', l: 'loud' } // Short aliases
-  ),
-  action: async (options) => {
-    const greeting = `Hello, ${options.name}!`;
-    console.log(options.loud ? greeting.toUpperCase() : greeting);
-  },
-});
-
-// Configure the CLI
-const config = defineConfig({
-  meta: {
-    name: 'my-cli',
-    version: '1.0.0',
-    description: 'A simple CLI example',
-  },
-  commands: {
-    greet: greetCommand,
-  },
-  defaultCommand: greetCommand,
-});
-
-// Process command line arguments
-try {
-  const result = processConfig(config, process.argv.slice(2));
-  await result.command.action(result.options, result.args);
-} catch (error) {
-  console.error('Error:', error.message);
-  process.exit(1);
-}
-```
-
-### Command Usage
-
-```bash
-# Show help
-my-cli --help
-my-cli greet --help
-
-# Run commands
-my-cli greet --name Alice
-my-cli greet -n Bob --loud
-
-# Run default command
-my-cli --name Alice
-my-cli greet --name Alice
-```
-
-### Advanced Features
-
-#### Default Commands
-
-You can specify a default command that will be executed when no command is provided:
-
-```javascript
-const config = defineConfig({
-  meta: {
-    name: 'my-app',
-    version: '1.0.0',
-  },
-  commands: {
-    start: startCommand,
-    build: buildCommand,
-  },
-  defaultCommand: startCommand,
-});
-```
-
-With this configuration:
-- `my-app` will run the `startCommand`
-- `my-app --help` will still show the help message
-- `my-app build` will run the `build` command
-
-#### Commands with Arguments
-
-```javascript
-const copyCommand = defineCommand({
-  description: 'Copy a file',
-  args: z.tuple([
-    z.string().describe('Source file'),
-    z.string().describe('Destination file'),
-  ]),
-  options: defineOptions(
-    z.object({
-      verbose: z.boolean().default(false).describe('Verbose output'),
-    }),
-    { v: 'verbose' }
-  ),
-  action: async (options, args) => {
-    const [source, dest] = args;
-    console.log(`Copying ${source} to ${dest}`);
-  },
-});
-```
-
-#### Array Options
-
-```javascript
-const options = defineOptions(
-  z.object({
-    files: z.array(z.string()).describe('Input files'),
-    tags: z.array(z.string()).optional().describe('Tags to apply'),
-  })
-);
-
-// Usage: --files file1.txt --files file2.txt
-// Single values are automatically converted to arrays
-```
-
-#### Type Transformations
-
-```javascript
-const options = defineOptions(
-  z.object({
-    port: z.coerce.number().min(1).max(65535).describe('Port number'),
-    count: z.coerce.number().min(1).describe('Count'),
-  })
-);
-```
-
-### Flag Parsing
-
-`zodline` supports various flag formats:
-
-```bash
-# Long flags
---verbose --name=value --port 3000
-
-# Short flags  
--v -n value -p 3000
-
-# Flag clustering
--abc  # equivalent to -a -b -c
-
-# Kebab-case conversion
---my-option  # becomes myOption in your code
-
-# Multiple values
---file a.txt --file b.txt  # becomes ['a.txt', 'b.txt']
-```
-
-### API Reference
-
-#### `defineOptions(schema, aliases?)`
-
-Define options for a command with optional aliases.
-
-- `schema`: Zod object schema defining the options
-- `aliases`: Optional object mapping short aliases to option names
-
-#### `defineCommand(config)`
-
-Define a command with options, arguments, and action.
-
-- `description`: Command description for help
-- `options`: Options definition (optional)
-- `args`: Zod schema for arguments (optional)  
-- `action`: Function to execute when command is run
-
-#### `defineConfig(config)`
-
-Define the CLI configuration.
-
-- `meta`: CLI metadata (name, version, description)
-- `commands`: Object mapping command names to definitions
-- `defaultCommand`: Optional default command definition to run when no command is specified
-
-#### `processConfig(config, args)`
-
-Process command line arguments and return the result.
-
-- `config`: CLI configuration
-- `args`: Command line arguments (typically `process.argv.slice(2)`)
-
-Returns an object with:
-- `command`: The matched command definition
-- `options`: Parsed and validated options
-- `args`: Parsed and validated arguments
-
-## Used By
-
-- [Capawesome Team CLI](https://github.com/capawesome-team/cli) - The Capawesome Cloud CLI to manage Live Updates and more.
 
 ## Changelog
 
