@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.1](https://github.com/capawesome-team/zodline/compare/v0.3.0...v0.3.1) (2026-09-20)
+
+
+### Features
+
+* add `examples` field to `defineCommand` ([#10](https://github.com/capawesome-team/zodline/issues/10)) ([5905362](https://github.com/capawesome-team/zodline/commit/59053627efa4028163dc482b21745686898a02cf))
+* support multi-word command names ([#12](https://github.com/capawesome-team/zodline/issues/12)) ([6a4c09b](https://github.com/capawesome-team/zodline/commit/6a4c09bce5071667b161af448ac1f1ccd3a2bae2))
+
 ## [0.3.0](https://github.com/capawesome-team/zodline/compare/v0.2.0...v0.3.0) (2026-08-06)
 
 
