@@ -13,6 +13,7 @@ export function defineCommand<
   TArgs extends z.ZodType | undefined = undefined,
 >(config: {
   description?: string;
+  examples?: string[];
   options?: TOptions;
   args?: TArgs;
   action: (

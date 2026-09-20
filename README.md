@@ -226,7 +226,7 @@ Positional argument failures are currently thrown as a plain `Error` prefixed wi
 | Export | Description |
 | --- | --- |
 | `defineOptions(schema, aliases?)` | Pairs a Zod object schema with an optional short-alias map. |
-| `defineCommand(definition)` | Defines a command from a `description`, `options`, `args` and `action`. |
+| `defineCommand(definition)` | Defines a command from a `description`, `examples`, `options`, `args` and `action`. |
 | `defineConfig(config)` | Defines the CLI from `meta`, `commands` and an optional `defaultCommand`. |
 | `processConfig(config, argv)` | Parses and validates `argv`, returning `{ command, options, args }`. |
 | `ZodlineError` | Thrown for unknown commands and unknown options. |
