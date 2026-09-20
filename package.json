@@ -1,6 +1,6 @@
 {
   "name": "zodline",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Type-safe CLI argument parser powered by Zod schemas. Zero dependencies, inferred TypeScript types, and automatic help generation.",
   "type": "module",
   "main": "dist/index.js",
