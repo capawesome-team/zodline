@@ -79,6 +79,35 @@ export const config = defineConfig({
 });
 ```
 
+## Subcommands
+
+A key with spaces is matched against several arguments, which gives you `gh pr create`-style subcommands
+without nesting the config:
+
+```ts
+export const config = defineConfig({
+  meta: { name: 'my-cli' },
+  commands: {
+    'config set': setConfig,
+    'config get': getConfig,
+    login,
+  },
+});
+```
+
+```bash
+my-cli config set theme dark   # runs 'config set' with args ['theme', 'dark']
+my-cli config --help           # lists only the 'config …' commands
+my-cli config nope             # lists the 'config …' commands, then throws: Unknown command: config nope
+```
+
+The **longest** matching key wins and the remaining positional arguments become `args`.
+
+:::warning
+If both `config` and `config set` are registered, `my-cli config set` always runs `config set`. The `config`
+command can never receive `set` as its first argument.
+:::
+
 ## Commands without options
 
 `options` is optional. Leave it out and `action` receives an empty object:

@@ -48,7 +48,7 @@ export const config = defineConfig({
 ```text
 A simple example CLI (my-cli v1.0.0)
 
-USAGE my-cli greet|copy
+USAGE my-cli <command>
 
 COMMANDS
 
@@ -59,6 +59,9 @@ Use my-cli <command> --help for more information about a command.
 ```
 
 Commands appear in the order they are declared in `commands`, each with its `description`.
+
+With [subcommands](/docs/guides/commands#subcommands), `my-cli config --help` prints the same screen limited
+to the commands whose name starts with `config`.
 
 ## Per-command help
 
@@ -126,6 +129,7 @@ my-cli --version
 | --------------------------------- | ---------------------------------------------------------- |
 | `my-cli --help`                   | Prints the command list, then exits with code `0`.          |
 | `my-cli <command> --help`          | Prints that command's options, then exits with code `0`.    |
+| `my-cli <group> --help`            | Prints the group's command list, then exits with code `0`.  |
 | `my-cli --version`                | Prints `meta.version`, then exits with code `0`.            |
 | `my-cli <unknown>`                | Prints the command list, then throws `ZodlineError`.        |
 | `my-cli` (no `defaultCommand`)    | Prints the command list, then throws `ZodlineError`.        |

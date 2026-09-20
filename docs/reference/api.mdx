@@ -152,7 +152,8 @@ await result.command.action(result.options, result.args);
 <Steps>
   <Step title="Parse flags">argv is split into flags and positional arguments.</Step>
   <Step title="Resolve the command">
-    The first positional argument names the command. With none, `--version` and `--help` are handled (both
+    The longest run of leading positional arguments that matches a command name wins, so `config set` is
+    matched by `my-cli config set`. With no positional arguments, `--version` and `--help` are handled (both
     exit `0`), then `defaultCommand`, then a `ZodlineError`.
   </Step>
   <Step title="Per-command help">`--help` after a command name prints its options and exits `0`.</Step>

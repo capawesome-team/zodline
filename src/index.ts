@@ -193,9 +193,8 @@ function displayHelp<T extends Record<string, CommandDefinition<any, any>>>(
     version: meta?.version,
   });
 
-  const commandNames = Object.keys(commands).join('|');
   const usageName = meta?.name || 'cli';
-  console.log(`\x1b[1mUSAGE\x1b[0m \x1b[36m${usageName} ${commandNames}\x1b[0m\n`);
+  console.log(`\x1b[1mUSAGE\x1b[0m \x1b[36m${usageName} <command>\x1b[0m\n`);
 
   console.log('\x1b[1mCOMMANDS\x1b[0m\n');
 
@@ -529,6 +528,46 @@ function processCommandExecution<TCommand extends CommandDefinition<any, any>>(
 }
 
 /**
+ * Finds the command name that matches the longest prefix of the given tokens.
+ * This allows multi-word command names such as 'config set'.
+ *
+ * @param commandNames - Names of all available commands
+ * @param tokens - Non-flag command line arguments
+ * @returns The matching command name, or undefined if no command matches
+ *
+ * @example
+ * findCommandName(['config', 'config set'], ['config', 'set', 'theme'])
+ * // Returns: 'config set'
+ */
+function findCommandName(commandNames: string[], tokens: string[]): string | undefined {
+  for (let wordCount = tokens.length; wordCount > 0; wordCount--) {
+    const candidate = tokens.slice(0, wordCount).join(' ');
+    if (commandNames.includes(candidate)) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Returns the commands that belong to a group, i.e. whose name starts with the group name followed by a space.
+ *
+ * @param commands - Object mapping command names to their definitions
+ * @param groupName - First word of the multi-word command names to look for
+ * @returns Object containing only the commands of the group
+ *
+ * @example
+ * findCommandsInGroup({ 'config set': ..., 'config get': ..., login: ... }, 'config')
+ * // Returns: { 'config set': ..., 'config get': ... }
+ */
+function findCommandsInGroup(
+  commands: Record<string, CommandDefinition<any, any>>,
+  groupName: string,
+): Record<string, CommandDefinition<any, any>> {
+  return Object.fromEntries(Object.entries(commands).filter(([name]) => name.startsWith(`${groupName} `)));
+}
+
+/**
  * Main entry point for processing CLI configuration and arguments.
  * Parses command line arguments, validates options, and returns the processed result.
  * Handles help display, command validation, and option processing.
@@ -541,6 +580,10 @@ function processCommandExecution<TCommand extends CommandDefinition<any, any>>(
  * @example
  * processConfig(config, ['apps:bundles:create', '--android-max', '10'])
  * // Returns: { command: ..., options: { androidMax: '10' }, args: [] }
+ *
+ * @example
+ * processConfig(config, ['config', 'set', 'theme'])
+ * // Matches the multi-word command 'config set' and returns: { command: ..., options: {}, args: ['theme'] }
  */
 export function processConfig<TCommands extends Record<string, CommandDefinition<any, any>> = {}>(
   config: DefineConfig<TCommands>,
@@ -549,10 +592,9 @@ export function processConfig<TCommands extends Record<string, CommandDefinition
   const parsedFlags = parseFlags(args);
   const commandArgs = (parsedFlags._ as string[]) || [];
 
-  // Find the command
-  const commandName = commandArgs[0];
+  const firstCommandArg = commandArgs[0];
 
-  if (!commandName) {
+  if (!firstCommandArg) {
     if (parsedFlags.version === true && config.meta?.version) {
       // Show version and exit successfully
       console.log(config.meta.version);
@@ -571,13 +613,21 @@ export function processConfig<TCommands extends Record<string, CommandDefinition
     }
   }
 
-  const command = config.commands[commandName];
-  if (!command) {
-    displayHelp(config.commands, config.meta);
-    throw new ZodlineError(`Unknown command: \x1b[36m${commandName}\x1b[0m`);
+  // Find the command
+  const commandName = findCommandName(Object.keys(config.commands), commandArgs);
+  const command = commandName && config.commands[commandName];
+  if (!commandName || !command) {
+    // Show only the commands of the group (e.g. `config` for `config set`) if there is one
+    const groupCommands = findCommandsInGroup(config.commands, firstCommandArg);
+    const isGroup = Object.keys(groupCommands).length > 0;
+    displayHelp(isGroup ? groupCommands : config.commands, config.meta);
+    if (isGroup && parsedFlags.help === true) {
+      process.exit(0);
+    }
+    throw new ZodlineError(`Unknown command: \x1b[36m${commandArgs.join(' ')}\x1b[0m`);
   }
 
-  const remainingArgs = commandArgs.slice(1);
+  const remainingArgs = commandArgs.slice(commandName.split(' ').length);
 
   // Check for help flag for the specific command
   if (parsedFlags.help === true) {
