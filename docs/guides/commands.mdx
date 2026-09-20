@@ -35,6 +35,10 @@ export const build = defineCommand({
       type: 'string',
       description: 'Shown next to the command in the help screen.',
     },
+    examples: {
+      type: 'string[]',
+      description: 'Example invocations, printed verbatim in the per-command help.',
+    },
     options: {
       type: 'OptionsDefinition',
       description: 'The result of defineOptions(). Omit for a command with no flags.',

@@ -92,6 +92,27 @@ Option descriptions come from `.describe()` on the field. An option with no desc
 without explanatory text — worth checking before a release.
 :::
 
+### Examples
+
+A command's optional `examples` are listed after its options:
+
+```ts
+const greet = defineCommand({
+  description: 'Greet someone',
+  examples: ['my-cli greet --name World', 'my-cli greet --name World --loud'],
+  // ...
+});
+```
+
+```text
+EXAMPLES
+
+  my-cli greet --name World
+  my-cli greet --name World --loud
+```
+
+Examples are printed verbatim, so include the CLI name yourself.
+
 ## Version
 
 ```bash

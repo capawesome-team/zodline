@@ -5,6 +5,7 @@ import { defineConfig, defineCommand, defineOptions, processConfig } from './dis
 // Define a simple command to greet someone
 const greetCommand = defineCommand({
   description: 'Greet someone',
+  examples: ['simple-cli greet --name World', 'simple-cli greet -n World --loud'],
   options: defineOptions(
     z.object({
       name: z.string().describe('Name to greet'),

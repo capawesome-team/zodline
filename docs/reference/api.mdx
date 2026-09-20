@@ -66,6 +66,7 @@ const options = defineOptions(
 ```ts
 function defineCommand<TOptions, TArgs>(config: {
   description?: string;
+  examples?: string[];
   options?: TOptions;
   args?: TArgs;
   action: (options, args) => void | Promise<void>;
@@ -80,6 +81,10 @@ rather than `any`.
     description: {
       type: 'string',
       description: 'Shown in the help screens.',
+    },
+    examples: {
+      type: 'string[]',
+      description: 'Example invocations, printed verbatim in the per-command help.',
     },
     options: {
       type: 'OptionsDefinition',
@@ -205,6 +210,7 @@ interface OptionsDefinition<T extends z.ZodObject = z.ZodObject> {
 ```ts
 interface CommandDefinition<TOptions extends z.ZodObject, TArgs extends z.ZodType | undefined> {
   description?: string;
+  examples?: string[];
   options?: OptionsDefinition<TOptions>;
   args?: TArgs;
   action: (

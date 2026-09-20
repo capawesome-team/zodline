@@ -17,6 +17,7 @@ export interface CommandDefinition<
   TArgs extends z.ZodType | undefined = undefined,
 > {
   description?: string;
+  examples?: string[];
   options?: OptionsDefinition<TOptions>;
   args?: TArgs;
   action: (

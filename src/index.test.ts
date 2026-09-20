@@ -414,6 +414,35 @@ describe('index', () => {
     expect(() => processConfig(config, ['test', '--help'])).toThrow('process.exit called');
   });
 
+  it('should show examples in command help', () => {
+    const config = defineConfig({
+      commands: {
+        test: defineCommand({
+          examples: ['my-cli test --name World', 'NAME=World my-cli test'],
+          action: vi.fn(),
+        }),
+      },
+    });
+
+    expect(() => processConfig(config, ['test', '--help'])).toThrow('process.exit called');
+    expect(console.log).toHaveBeenCalledWith('\n\x1b[1mEXAMPLES\x1b[0m\n');
+    expect(console.log).toHaveBeenCalledWith('  \x1b[36mmy-cli test --name World\x1b[0m');
+    expect(console.log).toHaveBeenCalledWith('  \x1b[36mNAME=World my-cli test\x1b[0m');
+  });
+
+  it('should not show an examples section when no examples are defined', () => {
+    const config = defineConfig({
+      commands: {
+        test: defineCommand({
+          action: vi.fn(),
+        }),
+      },
+    });
+
+    expect(() => processConfig(config, ['test', '--help'])).toThrow('process.exit called');
+    expect(console.log).not.toHaveBeenCalledWith('\n\x1b[1mEXAMPLES\x1b[0m\n');
+  });
+
   describe('multi-word commands', () => {
     const configSet = defineCommand({ description: 'Set a config value', action: vi.fn() });
     const configGet = defineCommand({ description: 'Get a config value', action: vi.fn() });
