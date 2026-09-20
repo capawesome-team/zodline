@@ -247,11 +247,11 @@ function displayCommandHelp(
     usageLine += ' [ARGS]';
   }
 
-  console.log(`${usageLine}\x1b[0m\n`);
+  console.log(`${usageLine}\x1b[0m`);
 
   // Display options if they exist
   if (command.options?.schema) {
-    console.log('\x1b[1mOPTIONS\x1b[0m\n');
+    console.log('\n\x1b[1mOPTIONS\x1b[0m\n');
 
     const shape = command.options.schema.shape;
     const aliases = command.options.aliases || {};
@@ -287,6 +287,23 @@ function displayCommandHelp(
       const padding = ' '.repeat(Math.max(2, maxLength - visibleLength + 4));
       console.log(`${optionLine}${padding}${finalDescription}`);
     }
+  }
+
+  if (command.examples?.length) {
+    displayExamples(command.examples);
+  }
+}
+
+/**
+ * Displays the examples section of a command's help screen.
+ *
+ * @param examples - Example invocations, printed verbatim
+ */
+function displayExamples(examples: string[]): void {
+  console.log('\n\x1b[1mEXAMPLES\x1b[0m\n');
+
+  for (const example of examples) {
+    console.log(`  \x1b[36m${example}\x1b[0m`);
   }
 }
 
