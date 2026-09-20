@@ -81,7 +81,7 @@ $ my-cli --help
 
 A simple CLI example (my-cli v1.0.0)
 
-USAGE my-cli greet
+USAGE my-cli <command>
 
 COMMANDS
 
@@ -119,6 +119,22 @@ const config = defineConfig({
   },
 });
 ```
+
+Use a space as the separator to get subcommands. The longest matching name wins and the remaining positional
+arguments become `args`:
+
+```ts
+const config = defineConfig({
+  meta: { name: 'my-app', version: '1.0.0' },
+  commands: {
+    'config set': configSetCommand,
+    'config get': configGetCommand,
+  },
+});
+```
+
+- `my-app config set theme dark` runs `configSetCommand` with the args `['theme', 'dark']`
+- `my-app config --help` lists only the `config` commands
 
 Set `defaultCommand` to run a command when none is given:
 

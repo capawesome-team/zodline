@@ -413,4 +413,72 @@ describe('index', () => {
     // Help should trigger exit, not unknown option error
     expect(() => processConfig(config, ['test', '--help'])).toThrow('process.exit called');
   });
+
+  describe('multi-word commands', () => {
+    const configSet = defineCommand({ description: 'Set a config value', action: vi.fn() });
+    const configGet = defineCommand({ description: 'Get a config value', action: vi.fn() });
+    const login = defineCommand({ description: 'Log in', action: vi.fn() });
+    const config = defineConfig({
+      meta: { name: 'my-cli' },
+      commands: {
+        'config set': configSet,
+        'config get': configGet,
+        login,
+      },
+    });
+
+    const getLoggedOutput = () => vi.mocked(console.log).mock.calls.flat().join('\n');
+
+    it('should match a multi-word command', () => {
+      const result = processConfig(config, ['config', 'set']);
+      expect(result.command).toBe(configSet);
+    });
+
+    it('should pass the tokens after a multi-word command as args', () => {
+      const result = processConfig(config, ['config', 'set', 'theme', 'dark']);
+      expect(result.command).toBe(configSet);
+      expect(result.args).toEqual(['theme', 'dark']);
+    });
+
+    it('should still pass the tokens after a single-word command as args', () => {
+      const result = processConfig(config, ['login', 'alice']);
+      expect(result.command).toBe(login);
+      expect(result.args).toEqual(['alice']);
+    });
+
+    it('should prefer the longest matching command name', () => {
+      const configCommand = defineCommand({ action: vi.fn() });
+      const configWithOverlap = defineConfig({
+        commands: {
+          config: configCommand,
+          'config set': configSet,
+        },
+      });
+
+      expect(processConfig(configWithOverlap, ['config', 'set', 'theme']).command).toBe(configSet);
+      expect(processConfig(configWithOverlap, ['config', 'theme']).command).toBe(configCommand);
+    });
+
+    it('should show command help with the full multi-word name', () => {
+      expect(() => processConfig(config, ['config', 'set', '--help'])).toThrow('process.exit called');
+      expect(getLoggedOutput()).toContain('my-cli config set');
+    });
+
+    it('should show only the commands of a group when --help is passed for the group', () => {
+      expect(() => processConfig(config, ['config', '--help'])).toThrow('process.exit called');
+      expect(getLoggedOutput()).toContain('config set');
+      expect(getLoggedOutput()).toContain('config get');
+      expect(getLoggedOutput()).not.toContain('login');
+    });
+
+    it('should show the group help and throw for an unknown command within a group', () => {
+      expect(() => processConfig(config, ['config', 'unknown'])).toThrow(ZodlineError);
+      expect(() => processConfig(config, ['config', 'unknown'])).toThrow(/Unknown command:.*config unknown/);
+      expect(getLoggedOutput()).not.toContain('login');
+    });
+
+    it('should not resolve inherited object properties as commands', () => {
+      expect(() => processConfig(config, ['constructor'])).toThrow(/Unknown command:.*constructor/);
+    });
+  });
 });

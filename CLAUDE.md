@@ -35,7 +35,7 @@ Three source files under `src/`, all re-exported from `src/index.ts`:
 ### `processConfig` control flow (`index.ts`)
 
 1. `parseFlags` splits argv into flags and positional args (collected under the `_` key).
-2. Resolve the command name from `_[0]`. With no command: handle `--version`/`--help` (these call `process.exit(0)`), else fall back to `config.defaultCommand`, else show help and throw `ZodlineError`.
+2. Resolve the command name as the longest prefix of `_` that matches a command key (`findCommandName`), so a key like `config set` consumes two tokens. With no positional args: handle `--version`/`--help` (these call `process.exit(0)`), else fall back to `config.defaultCommand`, else show help and throw `ZodlineError`. With no match: show the help of the group named by `_[0]` (commands starting with `_[0] `, `process.exit(0)` on `--help`) or the full help, then throw `ZodlineError`.
 3. Per-command `--help` calls `displayCommandHelp` and `process.exit(0)`.
 4. `processCommandExecution` runs `validateOptions` (flags) and, if `command.args` is set, `command.args.parse(args)`.
 
