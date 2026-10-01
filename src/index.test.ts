@@ -443,6 +443,48 @@ describe('index', () => {
     expect(console.log).not.toHaveBeenCalledWith('\n\x1b[1mEXAMPLES\x1b[0m\n');
   });
 
+  describe('empty flag values', () => {
+    const config = defineConfig({
+      commands: {
+        test: defineCommand({
+          options: defineOptions(
+            z.object({
+              environment: z.union([z.string(), z.boolean()]).optional(),
+              verbose: z.boolean().optional(),
+            }),
+            { e: 'environment' },
+          ),
+          action: vi.fn(),
+        }),
+      },
+    });
+
+    it('should parse an empty argument after a long flag as an empty string', () => {
+      const result = processConfig(config, ['test', '--environment', '']);
+      expect(result.options).toEqual({ environment: '' });
+    });
+
+    it('should parse an empty equals value as an empty string', () => {
+      const result = processConfig(config, ['test', '--environment=']);
+      expect(result.options).toEqual({ environment: '' });
+    });
+
+    it('should parse an empty argument after a short flag as an empty string', () => {
+      const result = processConfig(config, ['test', '-e', '']);
+      expect(result.options).toEqual({ environment: '' });
+    });
+
+    it('should parse a flag at the end of argv as true', () => {
+      const result = processConfig(config, ['test', '--environment']);
+      expect(result.options).toEqual({ environment: true });
+    });
+
+    it('should parse a flag followed by another flag as true', () => {
+      const result = processConfig(config, ['test', '--environment', '--verbose']);
+      expect(result.options).toEqual({ environment: true, verbose: true });
+    });
+  });
+
   describe('multi-word commands', () => {
     const configSet = defineCommand({ description: 'Set a config value', action: vi.fn() });
     const configGet = defineCommand({ description: 'Get a config value', action: vi.fn() });
