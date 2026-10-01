@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.3.2](https://github.com/capawesome-team/zodline/compare/v0.3.1...v0.3.2) (2026-10-01)
+
+
+### Bug Fixes
+
+* parse an empty argument after a flag as an empty string ([#14](https://github.com/capawesome-team/zodline/issues/14)) ([864c863](https://github.com/capawesome-team/zodline/commit/864c863259d7fd74df9247f7b41c0faf77a0497f))
+
 ## [0.3.1](https://github.com/capawesome-team/zodline/compare/v0.3.0...v0.3.1) (2026-09-20)
 
 
