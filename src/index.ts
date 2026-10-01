@@ -49,7 +49,7 @@ function parseFlags(args: string[]): Record<string, string | boolean | string[]>
         }
       } else {
         const nextArg = args[i + 1];
-        if (nextArg && !nextArg.startsWith('-')) {
+        if (nextArg !== undefined && !nextArg.startsWith('-')) {
           addFlag(key, nextArg);
           i++;
         } else {
@@ -60,7 +60,7 @@ function parseFlags(args: string[]): Record<string, string | boolean | string[]>
       const key = arg.slice(1);
       if (key.length === 1) {
         const nextArg = args[i + 1];
-        if (nextArg && !nextArg.startsWith('-')) {
+        if (nextArg !== undefined && !nextArg.startsWith('-')) {
           addFlag(key, nextArg);
           i++;
         } else {
