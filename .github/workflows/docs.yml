@@ -15,7 +15,7 @@ env:
 jobs:
   deploy:
     name: Deploy
-    if: github.repository == 'capawesome-team/zodline'
+    if: github.repository == 'capawesome-team/zodline' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
