@@ -531,7 +531,8 @@ function validateOptions<T extends z.ZodObject<any> = z.ZodObject<any>>(
     if (unknownOptions.length > 0) {
       // Find the first unknown option that looks like a flag
       const firstUnknown = unknownOptions.find((key) => key !== 'help' && key !== 'version');
-      if (firstUnknown) {
+      // A bare `--` is parsed as a flag with an empty name, which is falsy.
+      if (firstUnknown !== undefined) {
         throw createUnknownOptionError(firstUnknown);
       }
     }

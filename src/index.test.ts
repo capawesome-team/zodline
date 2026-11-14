@@ -400,6 +400,18 @@ describe('index', () => {
     expect(() => processConfig(config, ['test', '--unknown'])).toThrow('Unknown option: \x1b[36m--unknown\x1b[0m');
   });
 
+  it('should throw error for a bare double dash when no schema defined', () => {
+    const config = defineConfig({
+      commands: {
+        test: defineCommand({
+          action: vi.fn(),
+        }),
+      },
+    });
+
+    expect(() => processConfig(config, ['test', '--'])).toThrow('Unknown option: \x1b[36m--\x1b[0m');
+  });
+
   it('should allow help and version when no schema defined', () => {
     const config = defineConfig({
       meta: { version: '1.0.0' },
