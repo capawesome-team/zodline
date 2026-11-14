@@ -483,15 +483,44 @@ describe('index', () => {
       const result = processConfig(config, ['test', '--environment', '--verbose']);
       expect(result.options).toEqual({ environment: true, verbose: true });
     });
+  });
+
+  describe('lone dash', () => {
+    const config = defineConfig({
+      commands: {
+        test: defineCommand({
+          options: defineOptions(
+            z.object({
+              environment: z.string().optional(),
+              verbose: z.boolean().optional(),
+            }),
+            { e: 'environment' },
+          ),
+          action: vi.fn(),
+        }),
+      },
+    });
 
     it('should parse a lone dash after a long flag as its value', () => {
       const result = processConfig(config, ['test', '--environment', '-']);
       expect(result.options).toEqual({ environment: '-' });
+      expect(result.args).toEqual([]);
     });
 
     it('should parse a lone dash after a short flag as its value', () => {
       const result = processConfig(config, ['test', '-e', '-']);
       expect(result.options).toEqual({ environment: '-' });
+      expect(result.args).toEqual([]);
+    });
+
+    it('should keep a lone dash as a positional argument when no flag stands before it', () => {
+      const result = processConfig(config, ['test', '-', '--verbose']);
+      expect(result.options).toEqual({ verbose: true });
+      expect(result.args).toEqual(['-']);
+    });
+
+    it('should fail validation when a boolean flag stands before a lone dash', () => {
+      expect(() => processConfig(config, ['test', '--verbose', '-'])).toThrow(z.ZodError);
     });
   });
 

@@ -2,7 +2,13 @@ import { z } from 'zod';
 import type { CommandDefinition, DefineConfig, OptionsDefinition, ProcessResult } from './types.js';
 import { ZodlineError } from './types.js';
 
-// A lone dash stands for standard input or output by convention, so it is a value and never a flag.
+/**
+ * Checks whether an argument is a flag.
+ * A lone dash names standard input or output by convention, so it is never a flag.
+ *
+ * @param arg - The command line argument to check
+ * @returns Whether the argument starts with a dash and is more than the dash alone
+ */
 function isFlag(arg: string): boolean {
   return arg.startsWith('-') && arg.length > 1;
 }

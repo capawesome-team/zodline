@@ -4,7 +4,27 @@ This is a comprehensive list of the breaking changes introduced in the releases 
 
 ## Versions
 
+- [Version 0.4.0](#version-040)
 - [Version 0.3.0](#version-030)
+
+## Version 0.4.0
+
+### Lone Dash After A Flag
+
+A lone `-` directly after a flag is now the value of that flag. Before, the flag became `true` and the `-` a positional argument.
+
+```diff
+  my-cli build --output -
+- # output: true, args: ['-']
++ # output: '-', args: []
+```
+
+**Attention:** A boolean switch directly before a positional `-` no longer works. The switch takes the `-` as its value, and a `z.boolean()` schema rejects it. Put the switch after the `-` or before another flag:
+
+```diff
+- my-cli copy --verbose - out.txt
++ my-cli copy - out.txt --verbose
+```
 
 ## Version 0.3.0
 

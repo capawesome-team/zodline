@@ -28,7 +28,7 @@ every value is a `string`, a `boolean`, or an array of strings.
 <Step title="A long flag takes the next argument as its value">
 
 Unless that argument is another flag, or there is no next argument. Then the flag is `true`.
-A lone `-` is a value and never a flag, the usual name for standard input or output.
+A lone `-` is not a flag. It is the usual name for standard input or output, so the flag takes it as its value.
 
 ```bash
 my-cli build --output dist    # output: 'dist'
@@ -99,14 +99,19 @@ my-cli copy src.txt dest.txt    # command: 'copy', args: ['src.txt', 'dest.txt']
 **There is no `--` separator.** A bare `--` is parsed as a flag with an empty name and is rejected as an
 unknown option — it does not mark the end of flags. A value that starts with `-` therefore cannot be passed
 positionally; use `--flag=-5` to get a leading dash into a flag value.
-The one exception is a lone `-`, which is a value after a flag and a positional argument on its own.
+The one exception is a lone `-`: directly after `--flag` or `-f` it is the value of that flag, anywhere else it
+is a positional argument.
 :::
+
+**A switch takes the positional argument that follows it.** In `--verbose -` or `--verbose file.txt` the next
+argument becomes the value of `verbose`, and a `z.boolean()` schema then rejects it. Put a switch after the
+positional arguments or before another flag.
 
 **Negative numbers are flags.** In `--offset -5`, the `-5` starts with `-`, so `offset` becomes `true` and
 `-5` is parsed as its own flag — which then fails with `Unknown option: -5`. Write `--offset=-5` instead.
 
 **Flags may appear anywhere.** They are collected independently of position, so
-`my-cli --verbose copy a b` and `my-cli copy a b --verbose` are equivalent.
+`my-cli --output=dist copy a b` and `my-cli copy a b --output=dist` are equivalent.
 
 **Names are not normalized here.** `--android-max` stays `android-max` through parsing; the mapping to the
 schema key `androidMax` happens later, during [options resolution](/docs/guides/options#resolution-order).

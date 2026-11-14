@@ -47,7 +47,8 @@ Note that `processConfig` both throws (`ZodlineError`) **and** calls `process.ex
 - Short-flag clustering: `-abc` → three boolean flags `a`, `b`, `c`.
 - A flag repeated multiple times collects its values into an array.
 - A flag whose next arg is another flag (or is absent) becomes boolean `true`.
-- A lone `-` is never a flag: it is a value after a flag and a positional arg on its own (`isFlag`).
+- A lone `-` is never a flag (`isFlag`): directly after `--flag` or `-f` it is that flag's value, anywhere else a positional arg.
+- The parser does not know the schema, so a boolean switch takes a positional arg that follows it and validation then fails.
 
 ### Options resolution pipeline (`validateOptions`)
 

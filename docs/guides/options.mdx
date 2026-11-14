@@ -60,6 +60,12 @@ my-cli greet --name World --loud     # loud: true
 my-cli greet --name World            # loud: false (from the default)
 ```
 
+:::warning
+A switch takes the next argument as its value unless that argument is another flag. So a switch must not stand
+directly before a positional argument, a lone `-` included: `my-cli copy --loud - out.txt` fails validation,
+`my-cli copy - out.txt --loud` works.
+:::
+
 To accept an explicit value, use `z.stringbool()`, which parses `"true"`/`"false"` and friends:
 
 ```ts
