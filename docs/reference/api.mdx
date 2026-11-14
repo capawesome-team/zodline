@@ -158,7 +158,8 @@ await result.command.action(result.options, result.args);
   </Step>
   <Step title="Per-command help">`--help` after a command name prints its options and exits `0`.</Step>
   <Step title="Validate">
-    Options run through the options pipeline; positional arguments run through the `args` schema.
+    Options run through the options pipeline; positional arguments run through the `args` schema. A command
+    without an `args` schema rejects them.
   </Step>
 </Steps>
 
@@ -169,6 +170,7 @@ await result.command.action(result.options, result.args);
 | No command and no `defaultCommand`        | `ZodlineError: No command specified.`                   |
 | Unknown command                           | `ZodlineError: Unknown command: <name>`                 |
 | Unknown option                            | `ZodlineError: Unknown option: --<name>`                |
+| Positional arg without an `args` schema   | `ZodlineError: Unexpected argument: <arg>`              |
 | Options schema failure                    | `ZodError`                                              |
 | Args schema failure                       | `Error: Argument validation failed: …`                  |
 
@@ -184,8 +186,8 @@ class ZodlineError extends Error {
 }
 ```
 
-Thrown for parse-level problems: no command, unknown command, unknown option. Schema failures are Zod's
-errors, not this one.
+Thrown for parse-level problems: no command, unknown command, unknown option, unexpected argument. Schema
+failures are Zod's errors, not this one.
 
 ```ts
 if (error instanceof ZodlineError) {

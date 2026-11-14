@@ -101,7 +101,8 @@ my-cli config --help           # lists only the 'config …' commands
 my-cli config nope             # lists the 'config …' commands, then throws: Unknown command: config nope
 ```
 
-The **longest** matching key wins and the remaining positional arguments become `args`.
+The **longest** matching key wins and the remaining positional arguments become `args`. The command needs an
+`args` schema to take them, see [Arguments](/docs/guides/arguments#omitting-the-schema).
 
 :::warning
 If both `config` and `config set` are registered, `my-cli config set` always runs `config set`. The `config`

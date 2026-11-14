@@ -37,7 +37,7 @@ Three source files under `src/`, all re-exported from `src/index.ts`:
 1. `parseFlags` splits argv into flags and positional args (collected under the `_` key). It runs twice: the first pass knows only the built-in boolean flags and finds the command, the second pass knows the boolean flags of that command (`resolveBooleanFlags`) and gives the flags and args that are used. When the second pass no longer names the same command, the first pass is kept (`parseFlagsOfCommand`).
 2. Resolve the command name as the longest prefix of `_` that matches a command key (`findCommandName`), so a key like `config set` consumes two tokens. With no positional args: handle `--version`/`--help` (these call `process.exit(0)`), else fall back to `config.defaultCommand`, else show help and throw `ZodlineError`. With no match: show the help of the group named by `_[0]` (commands starting with `_[0] `, `process.exit(0)` on `--help`) or the full help, then throw `ZodlineError`.
 3. Per-command `--help` calls `displayCommandHelp` and `process.exit(0)`.
-4. `processCommandExecution` runs `validateOptions` (flags) and, if `command.args` is set, `command.args.parse(args)`.
+4. `processCommandExecution` runs `validateOptions` (flags) and, if `command.args` is set, `command.args.parse(args)`. A command without `args` takes no positional args and throws `ZodlineError` for the first one.
 
 Note that `processConfig` both throws (`ZodlineError`) **and** calls `process.exit(0)` on help/version paths — tests must account for both exit styles.
 

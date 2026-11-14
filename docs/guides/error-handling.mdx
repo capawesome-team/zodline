@@ -16,6 +16,7 @@ apart is what lets you print something useful.
 | No command given, and no `defaultCommand`      | `ZodlineError`                                |
 | Unknown command                                | `ZodlineError`                                |
 | Unknown option                                 | `ZodlineError`                                |
+| Positional arg without an `args` schema        | `ZodlineError`                                |
 | Option failed schema validation                | `ZodError` (from Zod)                         |
 | Positional args failed schema validation       | `Error`, message prefixed `Argument validation failed:` |
 
@@ -78,6 +79,15 @@ my-cli version --anything
 Because unknown options are checked **before** aliases are resolved, an alias that is missing from the alias
 map produces `Unknown option`, not a validation error. If `-n` is rejected, the alias map is what to check.
 :::
+
+## Unexpected arguments
+
+A command that declares no `args` schema rejects positional arguments in the same way:
+
+```bash
+my-cli version extra
+# Unexpected argument: extra
+```
 
 ## Validation errors
 

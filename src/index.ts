@@ -464,6 +464,16 @@ function createUnknownOptionError(optionName: string): ZodlineError {
 }
 
 /**
+ * Creates an error for a positional argument that a command without an args schema was given.
+ *
+ * @param arg - The unexpected positional argument
+ * @returns ZodlineError with formatted error message
+ */
+function createUnexpectedArgumentError(arg: string): ZodlineError {
+  return new ZodlineError(`Unexpected argument: \x1b[36m${arg}\x1b[0m`);
+}
+
+/**
  * Extracts the default value from a Zod type, handling nested optional and default wrappers.
  *
  * @param zodType - The Zod type to extract default value from
@@ -579,6 +589,7 @@ function validateOptions<T extends z.ZodObject<any> = z.ZodObject<any>>(
 /**
  * Processes a command with its options and arguments.
  * Validates options using the command's schema and parses arguments if provided.
+ * A command without an args schema takes no positional arguments.
  *
  * @param command - The command definition to process
  * @param parsedFlags - Parsed flags from command line
@@ -594,8 +605,9 @@ function processCommandExecution<TCommand extends CommandDefinition<any, any>>(
   // Process command options
   const options = validateOptions(parsedFlags, command.options);
 
-  // Validate args if schema is provided
+  // Validate args if schema is provided, reject them otherwise
   let validatedArgs: any = args;
+  const [firstArg] = args;
   if (command.args) {
     try {
       validatedArgs = command.args.parse(args);
@@ -606,6 +618,8 @@ function processCommandExecution<TCommand extends CommandDefinition<any, any>>(
       }
       throw error;
     }
+  } else if (firstArg !== undefined) {
+    throw createUnexpectedArgumentError(firstArg);
   }
 
   return {

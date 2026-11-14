@@ -4,7 +4,31 @@ This is a comprehensive list of the breaking changes introduced in the releases 
 
 ## Versions
 
+- [Version 0.4.0](#version-040)
 - [Version 0.3.0](#version-030)
+
+## Version 0.4.0
+
+### Positional Arguments Without A Schema
+
+A command without an `args` schema no longer takes positional arguments. Before, they were passed to `action` as a raw `string[]` without validation. Now `processConfig` throws a `ZodlineError`:
+
+```diff
+  my-cli login alice
+- # runs login with the args ['alice']
++ # Unexpected argument: alice
+```
+
+**Attention:** Declare an `args` schema on every command that reads positional arguments. `z.array(z.string())` takes them as before:
+
+```diff
+  const login = defineCommand({
++   args: z.array(z.string()),
+    action: async (options, args) => {
+      // ...
+    },
+  });
+```
 
 ## Version 0.3.0
 
