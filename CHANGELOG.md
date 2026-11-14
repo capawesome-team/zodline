@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.4.0](https://github.com/capawesome-team/zodline/compare/v0.3.2...v0.4.0) (2026-11-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* reject positional arguments on a command without an args schema ([#21](https://github.com/capawesome-team/zodline/issues/21))
+
+### Bug Fixes
+
+* a boolean flag takes no value, and a lone dash is a value ([#19](https://github.com/capawesome-team/zodline/issues/19)) ([9dbf14d](https://github.com/capawesome-team/zodline/commit/9dbf14d9a7adea6e0e95a042356187786fb4d738))
+* reject a bare double dash on a command without options ([#20](https://github.com/capawesome-team/zodline/issues/20)) ([89c6b7b](https://github.com/capawesome-team/zodline/commit/89c6b7bcee1525d6ebd7f8df4f24ad6347ae6bbe))
+* reject positional arguments on a command without an args schema ([#21](https://github.com/capawesome-team/zodline/issues/21)) ([fe3e637](https://github.com/capawesome-team/zodline/commit/fe3e637d7a6c401c245dbdb3c6869a6ed622b6a5))
+
 ## [0.3.2](https://github.com/capawesome-team/zodline/compare/v0.3.1...v0.3.2) (2026-10-01)
 
 
