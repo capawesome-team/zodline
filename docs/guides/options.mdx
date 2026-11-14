@@ -46,8 +46,8 @@ my-cli serve --port 8080    # options.port === 8080 (number)
 
 ## Boolean flags
 
-A flag whose next argument is absent or starts with `-` becomes `true`. That makes `z.boolean()` right for
-presence-only switches:
+A flag typed `z.boolean()` takes no value. It is `true` when it is present, and the argument after it stays a
+positional argument. That makes `z.boolean()` right for presence-only switches:
 
 ```ts
 z.object({
@@ -58,6 +58,7 @@ z.object({
 ```bash
 my-cli greet --name World --loud     # loud: true
 my-cli greet --name World            # loud: false (from the default)
+my-cli copy --loud in.txt out.txt    # loud: true, args: ['in.txt', 'out.txt']
 ```
 
 To accept an explicit value, use `z.stringbool()`, which parses `"true"`/`"false"` and friends:

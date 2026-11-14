@@ -34,7 +34,7 @@ Three source files under `src/`, all re-exported from `src/index.ts`:
 
 ### `processConfig` control flow (`index.ts`)
 
-1. `parseFlags` splits argv into flags and positional args (collected under the `_` key).
+1. `parseFlags` splits argv into flags and positional args (collected under the `_` key). It runs twice: the first pass knows only the built-in boolean flags and finds the command, the second pass knows the boolean flags of that command (`resolveBooleanFlags`) and gives the flags and args that are used. When the second pass no longer names the same command, the first pass is kept (`parseFlagsOfCommand`).
 2. Resolve the command name as the longest prefix of `_` that matches a command key (`findCommandName`), so a key like `config set` consumes two tokens. With no positional args: handle `--version`/`--help` (these call `process.exit(0)`), else fall back to `config.defaultCommand`, else show help and throw `ZodlineError`. With no match: show the help of the group named by `_[0]` (commands starting with `_[0] `, `process.exit(0)` on `--help`) or the full help, then throw `ZodlineError`.
 3. Per-command `--help` calls `displayCommandHelp` and `process.exit(0)`.
 4. `processCommandExecution` runs `validateOptions` (flags) and, if `command.args` is set, `command.args.parse(args)`.
@@ -46,7 +46,10 @@ Note that `processConfig` both throws (`ZodlineError`) **and** calls `process.ex
 - Long (`--flag`), short (`-f`), `--flag=value`, and `--flag value` forms.
 - Short-flag clustering: `-abc` → three boolean flags `a`, `b`, `c`.
 - A flag repeated multiple times collects its values into an array.
-- A flag whose next arg starts with `-` (or is absent) becomes boolean `true`.
+- A flag whose next arg is another flag (or is absent) becomes boolean `true`.
+- A lone `-` is never a flag (`isFlag`): directly after `--flag` or `-f` it is that flag's value, anywhere else a positional arg.
+- A flag the command's schema types as `z.boolean()` takes no value (`resolveFlagValue`), and the same holds for its kebab-case form, its aliases, `--help` and `--version`. The words `true` and `false` stay its value, so `--yes false` still fails validation.
+- A boolean flag before the command name is not known yet and takes the command name as its value.
 
 ### Options resolution pipeline (`validateOptions`)
 
@@ -58,7 +61,7 @@ Order matters: **unknown-option check → alias resolution → kebab→camel con
 
 ### Zod introspection (fragile — handle with care)
 
-`isZodArrayType`, `extractDefaultValue`, and default-value formatting inspect Zod internals (`_def`, `constructor.name`, `_def.typeName`) and unwrap `ZodOptional`/`ZodDefault` wrappers manually. They deliberately check `constructor.name === 'ZodArray'` etc. because `instanceof` can fail across differing Zod instances. This code is tightly coupled to Zod's internal shape and is the most likely thing to break on a Zod upgrade — verify against the installed Zod v4 when touching it.
+`isZodArrayType`, `isZodBooleanType`, `extractDefaultValue`, and default-value formatting inspect Zod internals (`_def`, `constructor.name`, `_def.typeName`) and unwrap `ZodOptional`/`ZodDefault` wrappers manually. They deliberately check `constructor.name === 'ZodArray'` etc. because `instanceof` can fail across differing Zod instances. This code is tightly coupled to Zod's internal shape and is the most likely thing to break on a Zod upgrade — verify against the installed Zod v4 when touching it.
 
 ### Help output
 
