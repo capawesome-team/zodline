@@ -489,6 +489,7 @@ describe('index', () => {
     const config = defineConfig({
       commands: {
         test: defineCommand({
+          args: z.array(z.string()),
           options: defineOptions(
             z.object({
               environment: z.string().optional(),
