@@ -190,6 +190,8 @@ const copy = defineCommand({
 });
 ```
 
+A command without an `args` schema takes no positional arguments. A stray one throws a `ZodlineError`.
+
 ### Flag syntax
 
 | Form | Example | Result |
@@ -223,7 +225,7 @@ try {
   await result.command.action(result.options, result.args);
 } catch (error) {
   if (error instanceof ZodlineError) {
-    // Unknown command, unknown option, or no command specified
+    // Unknown command, unknown option, unexpected argument, or no command specified
     console.error(error.message);
   } else if (error instanceof z.ZodError) {
     // An option failed schema validation
@@ -245,7 +247,7 @@ Positional argument failures are currently thrown as a plain `Error` prefixed wi
 | `defineCommand(definition)` | Defines a command from a `description`, `examples`, `options`, `args` and `action`. |
 | `defineConfig(config)` | Defines the CLI from `meta`, `commands` and an optional `defaultCommand`. |
 | `processConfig(config, argv)` | Parses and validates `argv`, returning `{ command, options, args }`. |
-| `ZodlineError` | Thrown for unknown commands and unknown options. |
+| `ZodlineError` | Thrown for unknown commands, unknown options and unexpected arguments. |
 
 See the [API reference](https://zodline.dev/docs/reference/api) for full signatures and types.
 

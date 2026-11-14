@@ -414,6 +414,19 @@ describe('index', () => {
     expect(() => processConfig(config, ['test', '--help'])).toThrow('process.exit called');
   });
 
+  it('should throw error for a positional argument when no args schema is defined', () => {
+    const config = defineConfig({
+      commands: {
+        test: defineCommand({
+          action: vi.fn(),
+        }),
+      },
+    });
+
+    expect(() => processConfig(config, ['test', 'extra'])).toThrow(ZodlineError);
+    expect(() => processConfig(config, ['test', 'extra'])).toThrow('Unexpected argument: \x1b[36mextra\x1b[0m');
+  });
+
   it('should show examples in command help', () => {
     const config = defineConfig({
       commands: {
@@ -486,9 +499,13 @@ describe('index', () => {
   });
 
   describe('multi-word commands', () => {
-    const configSet = defineCommand({ description: 'Set a config value', action: vi.fn() });
+    const configSet = defineCommand({
+      description: 'Set a config value',
+      args: z.array(z.string()),
+      action: vi.fn(),
+    });
     const configGet = defineCommand({ description: 'Get a config value', action: vi.fn() });
-    const login = defineCommand({ description: 'Log in', action: vi.fn() });
+    const login = defineCommand({ description: 'Log in', args: z.array(z.string()), action: vi.fn() });
     const config = defineConfig({
       meta: { name: 'my-cli' },
       commands: {
@@ -518,7 +535,7 @@ describe('index', () => {
     });
 
     it('should prefer the longest matching command name', () => {
-      const configCommand = defineCommand({ action: vi.fn() });
+      const configCommand = defineCommand({ args: z.array(z.string()), action: vi.fn() });
       const configWithOverlap = defineConfig({
         commands: {
           config: configCommand,
