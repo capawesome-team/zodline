@@ -201,7 +201,7 @@ const copy = defineCommand({
 | Kebab-case | `--max-retries` | matches the schema key `maxRetries` |
 | Repeated flag | `--file a.txt --file b.txt` | `file: ['a.txt', 'b.txt']` |
 
-A flag whose next argument is another flag, or which is last, becomes `true`. A lone `-` is not a flag, so `--input -` gives `input: '-'`. A boolean switch must not stand directly before a positional argument, since it would take it as its value.
+A flag whose next argument is another flag, or which is last, becomes `true`. A flag typed `z.boolean()` takes no value, so the argument after it stays positional. A lone `-` is not a flag, so `--input -` gives `input: '-'`.
 
 ### Help and version
 

@@ -519,8 +519,94 @@ describe('index', () => {
       expect(result.args).toEqual(['-']);
     });
 
-    it('should fail validation when a boolean flag stands before a lone dash', () => {
-      expect(() => processConfig(config, ['test', '--verbose', '-'])).toThrow(z.ZodError);
+    it('should keep a lone dash as a positional argument when a boolean flag stands before it', () => {
+      const result = processConfig(config, ['test', '--verbose', '-']);
+      expect(result.options).toEqual({ verbose: true });
+      expect(result.args).toEqual(['-']);
+    });
+  });
+
+  describe('boolean flags', () => {
+    const config = defineConfig({
+      commands: {
+        copy: defineCommand({
+          args: z.array(z.string()),
+          options: defineOptions(
+            z.object({
+              dryRun: z.boolean().default(false),
+              protected: z.union([z.boolean(), z.stringbool()]).optional(),
+              verbose: z.boolean().optional(),
+            }),
+            { v: 'verbose' },
+          ),
+          action: vi.fn(),
+        }),
+      },
+    });
+
+    it('should keep the argument after a boolean flag as a positional argument', () => {
+      const result = processConfig(config, ['copy', '--verbose', 'in.txt', 'out.txt']);
+      expect(result.options).toEqual({ dryRun: false, verbose: true });
+      expect(result.args).toEqual(['in.txt', 'out.txt']);
+    });
+
+    it('should keep the argument after the alias of a boolean flag as a positional argument', () => {
+      const result = processConfig(config, ['copy', '-v', 'in.txt']);
+      expect(result.options).toEqual({ dryRun: false, verbose: true });
+      expect(result.args).toEqual(['in.txt']);
+    });
+
+    it('should keep the argument after a kebab-case boolean flag with a default as a positional argument', () => {
+      const result = processConfig(config, ['copy', '--dry-run', 'in.txt']);
+      expect(result.options).toEqual({ dryRun: true });
+      expect(result.args).toEqual(['in.txt']);
+    });
+
+    it('should pass false after a boolean flag to the schema as its value and never read the flag as set', () => {
+      expect(() => processConfig(config, ['copy', '--verbose', 'false'])).toThrow(z.ZodError);
+    });
+
+    it('should take the next argument as the value of a flag whose type is not a boolean alone', () => {
+      const result = processConfig(config, ['copy', '--protected', 'false', 'in.txt']);
+      expect(result.options).toEqual({ dryRun: false, protected: false });
+      expect(result.args).toEqual(['in.txt']);
+    });
+
+    it('should show the command help when a positional argument follows --help', () => {
+      expect(() => processConfig(config, ['copy', '--help', 'in.txt'])).toThrow('process.exit called');
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('copy'));
+    });
+
+    it('should pass the argument after a boolean flag to the default command', () => {
+      const defaultConfig = defineConfig({
+        commands: {},
+        defaultCommand: defineCommand({
+          args: z.array(z.string()),
+          options: defineOptions(z.object({ verbose: z.boolean().optional() })),
+          action: vi.fn(),
+        }),
+      });
+
+      const result = processConfig(defaultConfig, ['--verbose', 'in.txt']);
+      expect(result.options).toEqual({ verbose: true });
+      expect(result.args).toEqual(['in.txt']);
+    });
+
+    it('should never read the command name as a positional argument when a boolean flag stands before it', () => {
+      expect(() => processConfig(config, ['--verbose', 'in.txt', 'copy', 'out.txt'])).toThrow(z.ZodError);
+    });
+
+    it('should never pass a command name after a boolean flag to the default command', () => {
+      const defaultConfig = defineConfig({
+        commands: { build: defineCommand({ action: vi.fn() }) },
+        defaultCommand: defineCommand({
+          args: z.array(z.string()),
+          options: defineOptions(z.object({ verbose: z.boolean().optional() })),
+          action: vi.fn(),
+        }),
+      });
+
+      expect(() => processConfig(defaultConfig, ['--verbose', 'build'])).toThrow(z.ZodError);
     });
   });
 

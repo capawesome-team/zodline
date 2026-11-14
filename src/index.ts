@@ -2,6 +2,12 @@ import { z } from 'zod';
 import type { CommandDefinition, DefineConfig, OptionsDefinition, ProcessResult } from './types.js';
 import { ZodlineError } from './types.js';
 
+type ParsedFlags = Record<string, string | boolean | string[]>;
+
+const BOOLEAN_WORDS: ReadonlySet<string> = new Set(['false', 'true']);
+
+const BUILT_IN_BOOLEAN_FLAGS = ['help', 'version'];
+
 /**
  * Checks whether an argument is a flag.
  * A lone dash names standard input or output by convention, so it is never a flag.
@@ -14,24 +20,48 @@ function isFlag(arg: string): boolean {
 }
 
 /**
+ * Resolves the value of a flag from the argument that follows it.
+ * A boolean flag takes no value, so the argument after it stays a positional argument.
+ * The words `true` and `false` are still its value, so that `--flag false` reaches the schema and is never read as `--flag` alone.
+ *
+ * @param key - The flag name as typed, without its dashes
+ * @param nextArg - The argument that follows the flag, if any
+ * @param booleanFlags - Names of the flags that take no value
+ * @returns The next argument when the flag takes it as its value, `true` otherwise
+ */
+function resolveFlagValue(
+  key: string,
+  { booleanFlags, nextArg }: { booleanFlags: ReadonlySet<string>; nextArg: string | undefined },
+): string | true {
+  if (nextArg === undefined || isFlag(nextArg)) {
+    return true;
+  }
+  if (booleanFlags.has(key) && !BOOLEAN_WORDS.has(nextArg)) {
+    return true;
+  }
+  return nextArg;
+}
+
+/**
  * Parses command line arguments into flags and non-flag arguments.
  * Handles both long flags (--flag) and short flags (-f), including flag clustering (-abc).
  * Supports flags with values (--flag=value or --flag value) and boolean flags.
  * When the same flag is specified multiple times, values are collected into an array.
  *
  * @param args - Array of command line arguments to parse
+ * @param booleanFlags - Names of the flags that take no value, as they are typed
  * @returns Object containing parsed flags and non-flag arguments under '_' key
  *
  * @example
- * parseFlags(['--verbose', '--count', '5', 'file.txt'])
+ * parseFlags(['--verbose', '--count', '5', 'file.txt'], { booleanFlags: new Set() })
  * // Returns: { verbose: true, count: '5', _: ['file.txt'] }
  *
  * @example
- * parseFlags(['--custom-property', 'key1=value1', '--custom-property', 'key2=value2'])
- * // Returns: { 'custom-property': ['key1=value1', 'key2=value2'], _: [] }
+ * parseFlags(['--verbose', 'file.txt'], { booleanFlags: new Set(['verbose']) })
+ * // Returns: { verbose: true, _: ['file.txt'] }
  */
-function parseFlags(args: string[]): Record<string, string | boolean | string[]> {
-  const flags: Record<string, string | boolean | string[]> = {};
+function parseFlags(args: string[], { booleanFlags }: { booleanFlags: ReadonlySet<string> }): ParsedFlags {
+  const flags: ParsedFlags = {};
   const nonFlags: string[] = [];
 
   const addFlag = (key: string, value: string | boolean) => {
@@ -59,24 +89,16 @@ function parseFlags(args: string[]): Record<string, string | boolean | string[]>
           addFlag(flagName, valueParts.join('='));
         }
       } else {
-        const nextArg = args[i + 1];
-        if (nextArg !== undefined && !isFlag(nextArg)) {
-          addFlag(key, nextArg);
-          i++;
-        } else {
-          addFlag(key, true);
-        }
+        const value = resolveFlagValue(key, { booleanFlags, nextArg: args[i + 1] });
+        addFlag(key, value);
+        if (value !== true) i++;
       }
     } else if (isFlag(arg)) {
       const key = arg.slice(1);
       if (key.length === 1) {
-        const nextArg = args[i + 1];
-        if (nextArg !== undefined && !isFlag(nextArg)) {
-          addFlag(key, nextArg);
-          i++;
-        } else {
-          addFlag(key, true);
-        }
+        const value = resolveFlagValue(key, { booleanFlags, nextArg: args[i + 1] });
+        addFlag(key, value);
+        if (value !== true) i++;
       } else {
         for (const char of key) {
           addFlag(char, true);
@@ -350,13 +372,12 @@ function normalizeArrayFields(options: Record<string, any>, schema: z.ZodObject<
 }
 
 /**
- * Checks if a Zod type is an array type, handling optional and default wrappers.
+ * Unwraps the optional and default wrappers of a Zod type.
  *
- * @param zodType - The Zod type to check
- * @returns True if the type is an array type
+ * @param zodType - The Zod type to unwrap
+ * @returns The content type the wrappers hold
  */
-function isZodArrayType(zodType: any): boolean {
-  // Handle ZodOptional and ZodDefault wrappers, but stop when we find the actual type
+function unwrapZodType(zodType: any): any {
   let innerType = zodType;
 
   // Only unwrap wrapper types like ZodOptional and ZodDefault, not the content types
@@ -371,8 +392,63 @@ function isZodArrayType(zodType: any): boolean {
     }
   }
 
+  return innerType;
+}
+
+/**
+ * Checks if a Zod type is an array type, handling optional and default wrappers.
+ *
+ * @param zodType - The Zod type to check
+ * @returns True if the type is an array type
+ */
+function isZodArrayType(zodType: any): boolean {
+  const innerType = unwrapZodType(zodType);
+
   // Check for ZodArray type name as instanceof might not work with different zod instances
   return innerType instanceof z.ZodArray || (innerType._def && innerType._def.typeName === 'ZodArray');
+}
+
+/**
+ * Checks if a Zod type is a boolean type, handling optional and default wrappers.
+ * A type that also takes a string, such as `z.stringbool()` or a union, is not one.
+ *
+ * @param zodType - The Zod type to check
+ * @returns True if the type is a boolean type
+ */
+function isZodBooleanType(zodType: any): boolean {
+  const innerType = unwrapZodType(zodType);
+
+  // Check the type of the definition as instanceof might not work with different zod instances
+  return innerType instanceof z.ZodBoolean || innerType._def?.type === 'boolean';
+}
+
+/**
+ * Collects the names under which the boolean flags of a command are typed: the schema key, its kebab-case form and its aliases.
+ * `help` and `version` are boolean flags of every command.
+ *
+ * @param optionsDef - Optional options definition of the command
+ * @returns Names of the flags that take no value
+ *
+ * @example
+ * resolveBooleanFlags({ schema: z.object({ dryRun: z.boolean() }), aliases: { d: 'dryRun' } })
+ * // Returns: Set { 'help', 'version', 'dryRun', 'dry-run', 'd' }
+ */
+function resolveBooleanFlags(optionsDef?: OptionsDefinition<any>): Set<string> {
+  const booleanFlags = new Set(BUILT_IN_BOOLEAN_FLAGS);
+  if (!optionsDef) return booleanFlags;
+
+  for (const [key, zodType] of Object.entries(optionsDef.schema.shape)) {
+    if (isZodBooleanType(zodType)) {
+      booleanFlags.add(key);
+      booleanFlags.add(camelToKebab(key));
+    }
+  }
+  for (const [alias, target] of Object.entries(optionsDef.aliases ?? {})) {
+    if (booleanFlags.has(target)) {
+      booleanFlags.add(alias);
+    }
+  }
+  return booleanFlags;
 }
 
 /**
@@ -579,6 +655,38 @@ function findCommandsInGroup(
 }
 
 /**
+ * Parses the arguments again with the boolean flags of the command known, so that those flags take no value.
+ * A boolean flag before the command name took the argument after it when the command was not known yet.
+ * Without that value the positional arguments shift and may name another command.
+ * The first reading is kept then, and the schema rejects the value.
+ *
+ * @param args - Command line arguments to parse
+ * @param command - The command the first reading found
+ * @param commandName - Name of that command, undefined for the default command
+ * @param commandNames - Names of all available commands
+ * @param parsedFlags - The first reading, parsed before the command was known
+ * @returns Object containing parsed flags and non-flag arguments under '_' key
+ */
+function parseFlagsOfCommand(
+  args: string[],
+  {
+    command,
+    commandName,
+    commandNames,
+    parsedFlags,
+  }: {
+    command: CommandDefinition<any, any>;
+    commandName: string | undefined;
+    commandNames: string[];
+    parsedFlags: ParsedFlags;
+  },
+): ParsedFlags {
+  const commandFlags = parseFlags(args, { booleanFlags: resolveBooleanFlags(command.options) });
+  const namesSameCommand = findCommandName(commandNames, commandFlags._ as string[]) === commandName;
+  return namesSameCommand ? commandFlags : parsedFlags;
+}
+
+/**
  * Main entry point for processing CLI configuration and arguments.
  * Parses command line arguments, validates options, and returns the processed result.
  * Handles help display, command validation, and option processing.
@@ -600,8 +708,10 @@ export function processConfig<TCommands extends Record<string, CommandDefinition
   config: DefineConfig<TCommands>,
   args: string[],
 ): ProcessResult<CommandDefinition<any, any>> {
-  const parsedFlags = parseFlags(args);
+  // The command is not known yet, so only the flags that are boolean on every command are
+  const parsedFlags = parseFlags(args, { booleanFlags: resolveBooleanFlags() });
   const commandArgs = (parsedFlags._ as string[]) || [];
+  const commandNames = Object.keys(config.commands);
 
   const firstCommandArg = commandArgs[0];
 
@@ -616,7 +726,13 @@ export function processConfig<TCommands extends Record<string, CommandDefinition
       process.exit(0);
     } else if (config.defaultCommand) {
       // Use default command when no command is specified
-      return processCommandExecution(config.defaultCommand, parsedFlags, commandArgs);
+      const defaultCommandFlags = parseFlagsOfCommand(args, {
+        command: config.defaultCommand,
+        commandName: undefined,
+        commandNames,
+        parsedFlags,
+      });
+      return processCommandExecution(config.defaultCommand, defaultCommandFlags, defaultCommandFlags._ as string[]);
     } else {
       // Show help and throw error
       displayHelp(config.commands, config.meta);
@@ -625,7 +741,7 @@ export function processConfig<TCommands extends Record<string, CommandDefinition
   }
 
   // Find the command
-  const commandName = findCommandName(Object.keys(config.commands), commandArgs);
+  const commandName = findCommandName(commandNames, commandArgs);
   const command = commandName && config.commands[commandName];
   if (!commandName || !command) {
     // Show only the commands of the group (e.g. `config` for `config set`) if there is one
@@ -638,16 +754,17 @@ export function processConfig<TCommands extends Record<string, CommandDefinition
     throw new ZodlineError(`Unknown command: \x1b[36m${commandArgs.join(' ')}\x1b[0m`);
   }
 
-  const remainingArgs = commandArgs.slice(commandName.split(' ').length);
+  const commandFlags = parseFlagsOfCommand(args, { command, commandName, commandNames, parsedFlags });
+  const remainingArgs = (commandFlags._ as string[]).slice(commandName.split(' ').length);
 
   // Check for help flag for the specific command
-  if (parsedFlags.help === true) {
+  if (commandFlags.help === true) {
     displayCommandHelp(commandName, command, config.meta);
     process.exit(0);
   }
 
   // Process the command
-  return processCommandExecution(command, parsedFlags, remainingArgs);
+  return processCommandExecution(command, commandFlags, remainingArgs);
 }
 
 // Export main functions and types from config
