@@ -46,7 +46,8 @@ Note that `processConfig` both throws (`ZodlineError`) **and** calls `process.ex
 - Long (`--flag`), short (`-f`), `--flag=value`, and `--flag value` forms.
 - Short-flag clustering: `-abc` → three boolean flags `a`, `b`, `c`.
 - A flag repeated multiple times collects its values into an array.
-- A flag whose next arg starts with `-` (or is absent) becomes boolean `true`.
+- A flag whose next arg is another flag (or is absent) becomes boolean `true`.
+- A lone `-` is never a flag: it is a value after a flag and a positional arg on its own (`isFlag`).
 
 ### Options resolution pipeline (`validateOptions`)
 

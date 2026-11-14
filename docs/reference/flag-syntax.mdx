@@ -27,12 +27,14 @@ every value is a `string`, a `boolean`, or an array of strings.
 
 <Step title="A long flag takes the next argument as its value">
 
-Unless that argument starts with `-`, or there is no next argument — then the flag is `true`.
+Unless that argument is another flag, or there is no next argument. Then the flag is `true`.
+A lone `-` is a value and never a flag, the usual name for standard input or output.
 
 ```bash
 my-cli build --output dist    # output: 'dist'
 my-cli build --output --watch # output: true, watch: true
 my-cli build --output         # output: true
+my-cli build --output -       # output: '-'
 ```
 
 </Step>
@@ -97,6 +99,7 @@ my-cli copy src.txt dest.txt    # command: 'copy', args: ['src.txt', 'dest.txt']
 **There is no `--` separator.** A bare `--` is parsed as a flag with an empty name and is rejected as an
 unknown option — it does not mark the end of flags. A value that starts with `-` therefore cannot be passed
 positionally; use `--flag=-5` to get a leading dash into a flag value.
+The one exception is a lone `-`, which is a value after a flag and a positional argument on its own.
 :::
 
 **Negative numbers are flags.** In `--offset -5`, the `-5` starts with `-`, so `offset` becomes `true` and

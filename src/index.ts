@@ -2,6 +2,11 @@ import { z } from 'zod';
 import type { CommandDefinition, DefineConfig, OptionsDefinition, ProcessResult } from './types.js';
 import { ZodlineError } from './types.js';
 
+// A lone dash stands for standard input or output by convention, so it is a value and never a flag.
+function isFlag(arg: string): boolean {
+  return arg.startsWith('-') && arg.length > 1;
+}
+
 /**
  * Parses command line arguments into flags and non-flag arguments.
  * Handles both long flags (--flag) and short flags (-f), including flag clustering (-abc).
@@ -49,18 +54,18 @@ function parseFlags(args: string[]): Record<string, string | boolean | string[]>
         }
       } else {
         const nextArg = args[i + 1];
-        if (nextArg !== undefined && !nextArg.startsWith('-')) {
+        if (nextArg !== undefined && !isFlag(nextArg)) {
           addFlag(key, nextArg);
           i++;
         } else {
           addFlag(key, true);
         }
       }
-    } else if (arg.startsWith('-') && arg.length > 1) {
+    } else if (isFlag(arg)) {
       const key = arg.slice(1);
       if (key.length === 1) {
         const nextArg = args[i + 1];
-        if (nextArg !== undefined && !nextArg.startsWith('-')) {
+        if (nextArg !== undefined && !isFlag(nextArg)) {
           addFlag(key, nextArg);
           i++;
         } else {

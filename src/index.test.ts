@@ -483,6 +483,16 @@ describe('index', () => {
       const result = processConfig(config, ['test', '--environment', '--verbose']);
       expect(result.options).toEqual({ environment: true, verbose: true });
     });
+
+    it('should parse a lone dash after a long flag as its value', () => {
+      const result = processConfig(config, ['test', '--environment', '-']);
+      expect(result.options).toEqual({ environment: '-' });
+    });
+
+    it('should parse a lone dash after a short flag as its value', () => {
+      const result = processConfig(config, ['test', '-e', '-']);
+      expect(result.options).toEqual({ environment: '-' });
+    });
   });
 
   describe('multi-word commands', () => {

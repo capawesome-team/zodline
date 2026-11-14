@@ -46,7 +46,7 @@ my-cli serve --port 8080    # options.port === 8080 (number)
 
 ## Boolean flags
 
-A flag whose next argument is absent or starts with `-` becomes `true`. That makes `z.boolean()` right for
+A flag whose next argument is absent or is another flag becomes `true`. That makes `z.boolean()` right for
 presence-only switches:
 
 ```ts
